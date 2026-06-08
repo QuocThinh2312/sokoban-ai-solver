@@ -1,0 +1,51 @@
+"""Hằng số dùng chung cho game Sokoban."""
+
+WALL = "#"
+PLAYER = "@"
+PLAYER_ON_GOAL = "+"
+BOX = "$"
+BOX_ON_GOAL = "*"
+GOAL = "."
+FLOOR = " "
+
+# Các hướng di chuyển: phím hành động -> độ lệch hàng, cột.
+ACTIONS = {
+    "U": (-1, 0),
+    "D": (1, 0),
+    "L": (0, -1),
+    "R": (0, 1),
+}
+
+TILE_SIZE = 56
+SIDEBAR_WIDTH = 280
+DASHBOARD_WIDTH = 260
+HEADER_HEIGHT = 56
+BUTTON_BAR_HEIGHT = 64
+FPS = 60
+
+# Bảng màu sáng, gọn, dễ nhìn.
+COLOR_BG = (250, 248, 255)
+COLOR_BG_DEEP = (250, 248, 255)
+COLOR_PANEL = (255, 255, 255)
+COLOR_PANEL_HIGH = (226, 231, 255)
+COLOR_BORDER = (195, 198, 215)
+COLOR_FLOOR = (255, 255, 255)
+COLOR_FLOOR_GRID = (218, 226, 253)
+COLOR_OUTLINE = (115, 118, 134)
+COLOR_TEXT = (19, 27, 46)
+COLOR_TEXT_DIM = (67, 70, 85)
+COLOR_TEXT_FAINT = (115, 118, 134)
+COLOR_PRIMARY = (0, 74, 198)
+COLOR_PRIMARY_DIM = (180, 197, 255)
+COLOR_SECONDARY = (75, 65, 225)
+COLOR_TERTIARY = (0, 126, 55)
+COLOR_HIGHLIGHT = (74, 225, 118)
+
+COLOR_PLAYER_CORE = (0, 74, 198)
+COLOR_PLAYER_RING = (180, 197, 255)
+
+COLOR_BOX_GLOW = (100, 94, 251)
+COLOR_BOX_ON_GOAL = (74, 225, 118)
+
+DANH_SACH_THUAT_TOAN = ["BFS", "DFS", "UCS", "Greedy", "A*"]
+ALGORITHMS = DANH_SACH_THUAT_TOAN
