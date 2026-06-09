@@ -68,7 +68,6 @@ Heuristic dùng tổng khoảng cách Manhattan ngắn nhất từ mỗi thùng 
 ```text
 .
 ├── main.py
-├── requirements.txt
 ├── README.md
 ├── maps/
 │   ├── level1_small.txt
