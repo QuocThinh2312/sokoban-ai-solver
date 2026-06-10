@@ -22,13 +22,22 @@ def apply_action(state: State, action: str, level: Level) -> Optional[State]:
         new_boxes.append(beyond)
         new_boxes.sort() 
         
-        return State(target, tuple(new_boxes))
+        h = state.zobrist_hash
+        h ^= level.zobrist_table.player_keys[state.player]
+        h ^= level.zobrist_table.player_keys[target]
+        h ^= level.zobrist_table.box_keys[target]
+        h ^= level.zobrist_table.box_keys[beyond]
+        
+        return State(target, tuple(new_boxes), h)
 
-    return State(target, state.boxes)
+    h = state.zobrist_hash
+    h ^= level.zobrist_table.player_keys[state.player]
+    h ^= level.zobrist_table.player_keys[target]
+    
+    return State(target, state.boxes, h)
 
 
 class GameSession:
-
     def __init__(self, level: Level):
         self.level = level
         self.state: State = level.initial_state()

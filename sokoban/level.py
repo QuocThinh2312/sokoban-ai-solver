@@ -1,7 +1,8 @@
+import random
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
-from typing import FrozenSet, List, Optional, Tuple
+from typing import Dict, FrozenSet, List, Optional, Tuple
 
 from .constants import (
     BOX,
@@ -15,6 +16,29 @@ from .state import Position, State
 
 
 @dataclass(frozen=True)
+class ZobristTable:
+    player_keys: Dict[Position, int]
+    box_keys: Dict[Position, int]
+
+    def compute(self, player: Position, boxes: Tuple[Position, ...]) -> int:
+        h = self.player_keys.get(player, 0)
+        for b in boxes:
+            h ^= self.box_keys.get(b, 0)
+        return h
+
+def generate_zobrist_table(width: int, height: int) -> ZobristTable:
+    rng = random.Random(42) 
+    p_keys = {}
+    b_keys = {}
+    for r in range(height):
+        for c in range(width):
+            pos = (r, c)
+            p_keys[pos] = rng.getrandbits(64)
+            b_keys[pos] = rng.getrandbits(64)
+    return ZobristTable(p_keys, b_keys)
+
+
+@dataclass(frozen=True)
 class Level:
     name: str
     width: int
@@ -24,9 +48,11 @@ class Level:
     deadlocks: FrozenSet[Position]  
     initial_player: Position
     initial_boxes: Tuple[Position, ...]
+    zobrist_table: ZobristTable
 
     def initial_state(self) -> State:
-        return State(self.initial_player, self.initial_boxes)
+        h = self.zobrist_table.compute(self.initial_player, self.initial_boxes)
+        return State(self.initial_player, self.initial_boxes, h)
 
     def is_wall(self, pos: Position) -> bool:
         return pos in self.walls
@@ -72,8 +98,9 @@ def parse_level(text: str, name: str = "level") -> Level:
 
     if player is None:
         raise ValueError(f"No player in level {name}")
-    if len(boxes_list) != len(goals_list):
-        raise ValueError(f"Level {name}: number of boxes ({len(boxes_list)}) does not match number of goals ({len(goals_list)})")
+        
+    if len(boxes_list) == 0 or len(goals_list) == 0:
+        raise ValueError(f"Level {name} must have at least one box and one goal.")
 
     walls_set = frozenset(walls_list)
     goals_set = frozenset(goals_list)
@@ -90,10 +117,13 @@ def parse_level(text: str, name: str = "level") -> Level:
             prev_box = (curr_r - dr, curr_c - dc)
             prev_player = (curr_r - 2 * dr, curr_c - 2 * dc)
 
-            if prev_box not in walls_set and prev_player not in walls_set:
-                if prev_box not in alive_cells:
-                    alive_cells.add(prev_box)
-                    queue_positions.append(prev_box)
+            if (0 <= prev_box[0] < height and 0 <= prev_box[1] < width and
+                0 <= prev_player[0] < height and 0 <= prev_player[1] < width):
+                
+                if prev_box not in walls_set and prev_player not in walls_set:
+                    if prev_box not in alive_cells:
+                        alive_cells.add(prev_box)
+                        queue_positions.append(prev_box)
 
     deadlocks_list: List[Position] = []
     for r in range(height):
@@ -101,6 +131,8 @@ def parse_level(text: str, name: str = "level") -> Level:
             pos = (r, c)
             if pos not in walls_set and pos not in alive_cells:
                 deadlocks_list.append(pos)
+
+    zobrist = generate_zobrist_table(width, height)
 
     return Level(
         name=name,
@@ -111,6 +143,7 @@ def parse_level(text: str, name: str = "level") -> Level:
         deadlocks=frozenset(deadlocks_list),
         initial_player=player,
         initial_boxes=tuple(sorted(boxes_list)), 
+        zobrist_table=zobrist
     )
 
 def load_level_file(path: Path) -> Level:
