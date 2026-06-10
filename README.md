@@ -1,10 +1,10 @@
 # Sokoban AI Solver
 
-Một hệ thống tự động giải game Sokoban (Sokoban AI Solver) được viết bằng Python và Pygame. Dự án áp dụng các kỹ thuật tìm kiếm không gian trạng thái từ cơ bản đến nâng cao để tự động tìm ra chuỗi hành động tối ưu đẩy toàn bộ hộp vào đích.
+Một hệ thống tự động giải game Sokoban được viết bằng Python và Pygame. Dự án áp dụng các kỹ thuật tìm kiếm không gian trạng thái từ cơ bản đến nâng cao để tự động tìm ra chuỗi hành động tối ưu đẩy toàn bộ hộp vào đích.
 
 ## Cài đặt
 
-Cài đặt các thư viện phụ thuộc (Pygame, Numpy, Scipy,...):
+Cài đặt các thư viện phụ thuộc (Pygame, Numpy, Scipy,...)
 
 ## Cách chạy chương trình
 
@@ -64,22 +64,22 @@ Danh sách các thuật toán tìm kiếm được cài đặt trong `sokoban/al
 ## Cấu trúc thư mục
 
 SOKOBAN-AI-SOLVER/
-├── assets/ # Các file hình ảnh (box, wall, character, goal) và fonts
-├── maps/ # Kho dữ liệu các file .txt chứa ma trận màn chơi
+├── assets/                 # Các file hình ảnh (box, wall, character, goal) và fonts
+├── maps/                   # Kho dữ liệu các file .txt chứa ma trận màn chơi
 ├── sokoban/
-│ ├── **init**.py
-│ ├── algorithms.py # Cài đặt logic cốt lõi của 8 thuật toán AI
-│ ├── constants.py # Định nghĩa màu sắc, tham số UI, kích thước
-│ ├── game.py # Quản lý phiên chơi, di chuyển, undo/restart
-│ ├── level.py # Đọc, phân tích và mã hóa bản đồ từ file txt
-│ ├── main.py # Vòng lặp game chính và luồng xử lý AI
-│ ├── solver_utils.py # Lớp dữ liệu kết quả, cấu trúc Node và Hash
-│ ├── state.py # Quản lý State, Deadlock rules, Macro-moves
-│ └── ui.py # Render giao diện, bảng điều khiển, popup, scrollbar
+│   ├── __init__.py
+│   ├── algorithms.py       # Cài đặt logic cốt lõi của 8 thuật toán AI
+│   ├── constants.py        # Định nghĩa màu sắc, tham số UI, kích thước
+│   ├── game.py             # Quản lý phiên chơi, di chuyển, undo/restart
+│   ├── level.py            # Đọc, phân tích và mã hóa bản đồ từ file txt
+│   ├── main.py             # Vòng lặp game chính và luồng xử lý AI 
+│   ├── solver_utils.py     # Lớp dữ liệu kết quả, cấu trúc Node và Hash
+│   ├── state.py            # Quản lý State, Deadlock rules, Macro-moves
+│   └── ui.py               # Render giao diện, bảng điều khiển, popup, scrollbar
 ├── .gitignore
 ├── project_report.docx
-├── README.md # Tài liệu dự án
-└── run.py # Script khởi chạy phụ
+├── README.md               # Tài liệu dự án 
+└── run.py                  # Script khởi chạy phụ
 
 ## Chỉ số Telemetry (Đầu ra hệ thống)
 
