@@ -18,8 +18,8 @@ python run.py
 
 - **Nút RUN AI**: Khởi chạy thuật toán AI để giải màn chơi hiện tại.
 - **Nút RESTART**: Chơi lại từ đầu màn hiện tại.
-- **Nút MAPS**: Mở cửa sổ popup chọn Level với thanh cuộn tương tác (hỗ trợ kéo thả và con lăn chuột).
-- **Nút PAUSE / CONTINUE**: Tạm dừng hoặc tiếp tục quá trình di chuyển của bot AI sau khi đã giải xong.
+- **Nút MAPS**: Mở cửa sổ popup chọn level với thanh cuộn tương tác.
+- **Nút PAUSE / CONTINUE**: Tạm dừng hoặc tiếp tục quá trình di chuyển của bot AI.
 - **Nút RANDOM**: Chọn ngẫu nhiên một màn chơi trong hệ thống.
 - **Esc**: Thoát game.
 
@@ -37,7 +37,7 @@ python run.py
 
 ## Kho dữ liệu màn chơi
 
-Hệ thống hiện tại tích hợp một kho dữ liệu khổng lồ với hàng trăm màn chơi (ví dụ: level_001.txt đến level_694.txt và tiếp tục mở rộng) nằm trong thư mục maps/. Các map đa dạng độ khó từ cơ bản (kiểm tra luật) đến cực khó (đòi hỏi xử lý deadlock hình học phức tạp).
+Hệ thống hiện tại tích hợp một kho dữ liệu khổng lồ với hàng trăm màn chơi nằm trong thư mục maps/. Các map đa dạng độ khó từ cơ bản đến cực khó (đòi hỏi xử lý deadlock hình học phức tạp).
 
 ## Các Thuật toán AI được tích hợp
 
@@ -46,11 +46,11 @@ Danh sách các thuật toán tìm kiếm được cài đặt trong `sokoban/al
 1. **BFS**: Đảm bảo đường đi ngắn nhất nhưng tốn nhiều RAM.
 2. **DFS**: Tiết kiệm bộ nhớ nhưng không tối ưu số bước.
 3. **UCS**: Tối ưu theo chi phí.
-4. **Greedy Search**: Tốc độ cực nhanh, kết hợp đa tầng Tie-breaking và Jitter (nhiễu ngẫu nhiên) để tránh Local Optimum.
+4. **Greedy Search**: Tốc độ cực nhanh, kết hợp đa tầng Tie-breaking và Jitter để tránh Local Optimum.
 5. **A\***: Kết hợp g(n) + h(n), cân bằng giữa tối ưu và hiệu suất.
 6. **IDA\***: Phiên bản A\* tiết kiệm bộ nhớ.
 7. **Weighted A\***: Nhân trọng số cho Heuristic để tăng tốc độ tìm kiếm tại các map cực lớn.
-8. **Adaptive Beam Search**: Beam Search mở rộng linh hoạt, tự động nhận diện bế tắc (stagnation) để điều hướng không gian tìm kiếm.
+8. **Adaptive Beam Search**: Beam Search mở rộng linh hoạt, tự động nhận diện bế tắc để điều hướng không gian tìm kiếm.
 
 ## Kỹ thuật tối ưu & Cải tiến
 
@@ -92,5 +92,5 @@ Sau khi AI giải quyết một màn chơi, bảng dashboard sẽ hiển thị c
 - **SOLVED**: Trạng thái hoàn thành (YES / NO).
 - **PATH**: Số bước đi thực tế để giải map.
 - **NODES**: Số lượng trạng thái đã mở rộng trong bộ nhớ.
-- **TIME**: Thời gian chạy thuật toán.
+- **TIME**: Thời gian chạy thuật toán (ms hoặc s)
 - **RAM**: Ước lượng bộ nhớ đã tiêu thụ (KB).
