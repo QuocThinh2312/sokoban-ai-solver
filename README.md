@@ -1,4 +1,4 @@
-# Sokoban AI Solver - Retro Arcade Edition
+# Sokoban AI Solver
 
 Một hệ thống tự động giải game Sokoban (Sokoban AI Solver) được viết bằng Python và Pygame. Dự án áp dụng các kỹ thuật tìm kiếm không gian trạng thái từ cơ bản đến nâng cao để tự động tìm ra chuỗi hành động tối ưu đẩy toàn bộ hộp vào đích.
 
