@@ -63,23 +63,26 @@ Danh sách các thuật toán tìm kiếm được cài đặt trong `sokoban/al
 
 ## Cấu trúc thư mục
 
+```text
+
 SOKOBAN-AI-SOLVER/
 ├── assets/                 # Các file hình ảnh (box, wall, character, goal) và fonts
 ├── maps/                   # Kho dữ liệu các file .txt chứa ma trận màn chơi
 ├── sokoban/
-│   ├── __init__.py
 │   ├── algorithms.py       # Cài đặt logic cốt lõi của 8 thuật toán AI
 │   ├── constants.py        # Định nghĩa màu sắc, tham số UI, kích thước
 │   ├── game.py             # Quản lý phiên chơi, di chuyển, undo/restart
 │   ├── level.py            # Đọc, phân tích và mã hóa bản đồ từ file txt
-│   ├── main.py             # Vòng lặp game chính và luồng xử lý AI 
+│   ├── main.py             # Vòng lặp game chính và luồng xử lý AI
 │   ├── solver_utils.py     # Lớp dữ liệu kết quả, cấu trúc Node và Hash
 │   ├── state.py            # Quản lý State, Deadlock rules, Macro-moves
 │   └── ui.py               # Render giao diện, bảng điều khiển, popup, scrollbar
 ├── .gitignore
 ├── project_report.docx
-├── README.md               # Tài liệu dự án 
+├── README.md               # Tài liệu dự án
 └── run.py                  # Script khởi chạy phụ
+
+```
 
 ## Chỉ số Telemetry (Đầu ra hệ thống)
 
@@ -91,7 +94,3 @@ Sau khi AI giải quyết một màn chơi, bảng dashboard sẽ hiển thị c
 - **NODES**: Số lượng trạng thái đã mở rộng trong bộ nhớ.
 - **TIME**: Thời gian chạy thuật toán.
 - **RAM**: Ước lượng bộ nhớ đã tiêu thụ (KB).
-
-```
-
-```
