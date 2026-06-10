@@ -6,15 +6,15 @@ Một hệ thống tự động giải game Sokoban được viết bằng Pytho
 
 Cài đặt các thư viện phụ thuộc (Pygame, Numpy, Scipy,...)
 
-## Cách chạy chương trình
+## Chạy chương trình
 
-Mở terminal tại thư mục gốc của dự án và gõ lệnh sau:
+Mở terminal tại thư mục gốc của dự án và gõ lệnh:
 
 ```bash
 python run.py
 ```
 
-## Điều khiển & Tương tác UI
+## Điều khiển & tương tác UI
 
 - **Nút RUN AI**: Khởi chạy thuật toán AI để giải màn chơi hiện tại.
 - **Nút RESTART**: Chơi lại từ đầu màn hiện tại.
@@ -39,7 +39,7 @@ python run.py
 
 Hệ thống hiện tại tích hợp một kho dữ liệu khổng lồ với hàng trăm màn chơi nằm trong thư mục maps/. Các map đa dạng độ khó từ cơ bản đến cực khó (đòi hỏi xử lý deadlock hình học phức tạp).
 
-## Các Thuật toán AI được tích hợp
+## Các thuật toán AI được tích hợp
 
 Danh sách các thuật toán tìm kiếm được cài đặt trong `sokoban/algorithms.py`:
 
@@ -52,7 +52,7 @@ Danh sách các thuật toán tìm kiếm được cài đặt trong `sokoban/al
 7. **Weighted A\***: Nhân trọng số cho Heuristic để tăng tốc độ tìm kiếm tại các map cực lớn.
 8. **Adaptive Beam Search**: Beam Search mở rộng linh hoạt, tự động nhận diện bế tắc để điều hướng không gian tìm kiếm.
 
-## Kỹ thuật tối ưu & Cải tiến
+## Kỹ thuật tối ưu & cải tiến
 
 - **State-aware Heuristic (Bitmask DP)**: Tối ưu hóa việc gán Hộp -> Đích bằng Bitmask DP. Heuristic không chỉ đo khoảng cách Manhattan mà còn cộng điểm phạt khi hộp nằm ở góc/tường hẹp và thưởng khi người chơi đứng gần hộp.
 - **Geometric Deadlock Detection**: Hệ thống nhận diện bế tắc hình học chính xác (Static deadlock, Freeze deadlock, Tunnel deadlock, bẫy 2x2 tường/hộp) để cắt tỉa các nhánh vô vọng từ sớm mà không làm mất lời giải tối ưu.
@@ -65,7 +65,7 @@ Danh sách các thuật toán tìm kiếm được cài đặt trong `sokoban/al
 
 ```text
 
-SOKOBAN-AI-SOLVER/
+sokoban-ai-solver/
 ├── assets/                 # Các file hình ảnh (box, wall, character, goal) và fonts
 ├── maps/                   # Kho dữ liệu các file .txt chứa ma trận màn chơi
 ├── sokoban/
@@ -84,7 +84,7 @@ SOKOBAN-AI-SOLVER/
 
 ```
 
-## Chỉ số Telemetry (Đầu ra hệ thống)
+## Chỉ số Telemetry
 
 Sau khi AI giải quyết một màn chơi, bảng dashboard sẽ hiển thị chi tiết các thông số đo lường hiệu năng:
 
