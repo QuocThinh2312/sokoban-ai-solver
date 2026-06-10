@@ -12,6 +12,7 @@ Mở terminal tại thư mục gốc của dự án và gõ lệnh sau:
 
 ```bash
 python run.py
+```
 
 ## Điều khiển & Tương tác UI
 
@@ -90,4 +91,7 @@ Sau khi AI giải quyết một màn chơi, bảng dashboard sẽ hiển thị c
 - **NODES**: Số lượng trạng thái đã mở rộng trong bộ nhớ.
 - **TIME**: Thời gian chạy thuật toán.
 - **RAM**: Ước lượng bộ nhớ đã tiêu thụ (KB).
+
+```
+
 ```
