@@ -66,16 +66,17 @@ Danh sách các thuật toán tìm kiếm được cài đặt trong `sokoban/al
 ```text
 
 sokoban-ai-solver/
-├── assets/                 # Các file hình ảnh (box, wall, character, goal) và fonts
+├── assets/                 # Các file hình ảnh (box, wall, character, goal)
 ├── maps/                   # Kho dữ liệu các file .txt chứa ma trận màn chơi
 ├── sokoban/
-│   ├── algorithms.py       # Cài đặt logic cốt lõi của 8 thuật toán AI
-│   ├── constants.py        # Định nghĩa màu sắc, tham số UI, kích thước
-│   ├── game.py             # Quản lý phiên chơi, di chuyển, undo/restart
-│   ├── level.py            # Đọc, phân tích và mã hóa bản đồ từ file txt
-│   ├── main.py             # Vòng lặp game chính và luồng xử lý AI
-│   ├── solver_utils.py     # Lớp dữ liệu kết quả, cấu trúc Node và Hash
-│   ├── state.py            # Quản lý State, Deadlock rules, Macro-moves
+│   ├── __init__.py
+│   ├── algorithms.py       # Cài đặt logic cốt lõi của 8 thuật toán tìm kiếm AI .
+│   ├── constants.py        # Định nghĩa các hằng số toàn cục: ký hiệu màu sắc, kích thước UI,...
+│   ├── game.py             # Xử lý logic game và quản lý phiên chơi.
+│   ├── level.py            # Đọc, phân tích và mã hóa map từ file .txt
+│   ├── main.py             # Quản lý game loop, bắt sự kiện chuột/phím và điều phối đa luồng cho AI.
+│   ├── solver_utils.py     # Các kỹ thuật tối ưu: tính heuristic, deadlock detection, sinh macro-moves,...
+│   ├── state.py            # Định nghĩa cấu trúc bất biến của state, bao gồm vị trí player, boxes và zobrist.
 │   └── ui.py               # Render giao diện, bảng điều khiển, popup, scrollbar
 ├── .gitignore
 ├── project_report.docx
