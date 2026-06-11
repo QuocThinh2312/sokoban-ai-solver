@@ -23,8 +23,9 @@ RETRO_FLOOR: Tuple[int, int, int] = (218, 212, 186)
 
 class GameUI:
     def __init__(self) -> None:
+        pygame.mixer.pre_init(44100, -16, 2, 512)
         pygame.init()
-        pygame.display.set_caption("Sokoban AI - Retro Arcade Edition")
+        pygame.display.set_caption("Sokoban AI")
 
         self.screen: pygame.Surface = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         self.window_width: int = self.screen.get_width()
@@ -67,6 +68,59 @@ class GameUI:
         self.is_dragging_map_scroll: bool = False
         self.scrollbar_track_rect: Optional[pygame.Rect] = None
 
+        self.sounds: Dict[str, Optional[pygame.mixer.Sound]] = {}
+        self.last_sound_ticks: Dict[str, int] = {"move": 0, "click": 0}
+        self.win_sound_played: bool = False
+        self._load_sounds()
+
+    def _load_sounds(self) -> None:
+        audio_dir = ASSETS_DIR / "audio"
+        
+        sound_files = {
+            "click": "click.ogg",
+            "move": "move.ogg",
+            "select": "select.ogg",
+            "win": "win.ogg"
+        }
+        
+        for key, filename in sound_files.items():
+            path = audio_dir / filename
+            if path.exists():
+                try:
+                    snd = pygame.mixer.Sound(str(path))
+                    if key == "move": snd.set_volume(0.1)
+                    elif key == "click": snd.set_volume(0.3)
+                    elif key == "select": snd.set_volume(0.05)
+                    elif key == "win": snd.set_volume(0.05)
+                    self.sounds[key] = snd
+                except Exception:
+                    self.sounds[key] = None
+            else:
+                self.sounds[key] = None
+                
+        bgm_path = audio_dir / "bgm.ogg" 
+        if bgm_path.exists():
+            try:
+                pygame.mixer.music.load(str(bgm_path))
+                pygame.mixer.music.set_volume(0.1) 
+                pygame.mixer.music.play(-1)
+            except Exception:
+                pass
+
+    def play_sound(self, key: str) -> None:
+        sound = self.sounds.get(key)
+        
+        if sound is None:
+            return
+            
+        now = pygame.time.get_ticks()
+        if key == "move" and now - self.last_sound_ticks.get("move", 0) < 50:
+            return
+            
+        self.last_sound_ticks[key] = now
+        
+        sound.play()
+
     def _load_custom_fonts(self) -> None:
         font_path = ASSETS_DIR / "PressStart2P.ttf"
         try:
@@ -91,6 +145,8 @@ class GameUI:
     def _load_assets(self) -> Dict[str, Optional[pygame.Surface]]:
         result: Dict[str, Optional[pygame.Surface]] = {}
         
+        img_dir = ASSETS_DIR / "img"
+        
         asset_files: Dict[str, str] = {
             "wall": "wall.png", 
             "box": "box.jpg", 
@@ -101,7 +157,8 @@ class GameUI:
         
         for key, filename in asset_files.items():
             try:
-                asset_path = str(ASSETS_DIR / filename)
+                asset_path = str(img_dir / filename)
+                
                 if filename.endswith(".jpg"):
                     img = pygame.image.load(asset_path).convert()
                 else:
@@ -321,7 +378,12 @@ class GameUI:
             self._draw_map_popup(level_names, level_index)
             
         if game_session.has_won() and not self._is_animating(game_session.state.player, game_session.state.boxes):
+            if not self.win_sound_played:
+                self.play_sound("win")
+                self.win_sound_played = True
             self._draw_subtle_win_notification()
+        elif not game_session.has_won():
+            self.win_sound_played = False
             
         all_interactive_rects = list(self.algo_rects.values()) + list(self.button_rects.values()) + [self.slider_rect]
         

@@ -132,6 +132,11 @@ def main() -> None:
                 if action_tuple is not None:
                     action_type, action_value = action_tuple
 
+                    if action_type in ("select_algo", "temp_select_map"):
+                        ui.play_sound("select")
+                    else:
+                        ui.play_sound("click")
+
                     if action_type == "select_algo":
                         current_algo = str(action_value)
                         current_result = results_by_algo.get(current_algo)
@@ -174,6 +179,7 @@ def main() -> None:
                 if is_solving or ai_steps:
                     status_text = "Please wait..."
                     continue
+                ui.play_sound("click")
                 game_session.restart()
                 ui.is_paused = False
                 is_solving = True
@@ -193,24 +199,30 @@ def main() -> None:
                 if key == pygame.K_ESCAPE:
                     is_running = False
                 elif key in KEY_TO_ALGO:
+                    ui.play_sound("select")
                     current_algo = KEY_TO_ALGO[key]
                     current_result = results_by_algo.get(current_algo)
                     status_text = f"Selected {current_algo}."
                 elif key == pygame.K_r:
+                    ui.play_sound("click")
                     game_session.restart()
                     ai_steps.clear()
                     ui.is_paused = False
                     status_text = "Restarted."
                 elif key == pygame.K_u and game_session.undo():
+                    ui.play_sound("click")
                     pass
                 elif key == pygame.K_n:
+                    ui.play_sound("click")
                     level_index = (level_index + 1) % len(all_levels)
                     reset_level_state(level_index, f"Level: {all_levels[level_index].name}")
                 elif key == pygame.K_p:
+                    ui.play_sound("click")
                     level_index = (level_index - 1) % len(all_levels)
                     reset_level_state(level_index, f"Level: {all_levels[level_index].name}")
                 elif key in KEY_TO_ACTION and not ai_steps and not is_solving:
                     if game_session.move(KEY_TO_ACTION[key]):
+                        ui.play_sound("move")
                         if game_session.has_won():
                             status_text = "You completed the level!"
 
@@ -222,6 +234,7 @@ def main() -> None:
             if playback_timer >= playback_speed_ms:
                 playback_timer = 0
                 game_session.move(ai_steps.pop(0))
+                ui.play_sound("move")
                 if not ai_steps and game_session.has_won():
                     status_text = "AI completed the level!"
 
