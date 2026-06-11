@@ -46,4 +46,4 @@ COLOR_BOX_FALLBACK: Tuple[int, int, int] = (180, 100, 30)
 COLOR_BOX_ON_GOAL_FALLBACK: Tuple[int, int, int] = (50, 255, 100)
 COLOR_GOAL_FALLBACK: Tuple[int, int, int] = (0, 220, 255)
 
-ALGORITHMS: List[str] = ["BFS", "DFS", "UCS", "Greedy", "A*", "IDA*", "Weighted A*", "Beam Search"]
+ALGORITHMS: List[str] = ["A*", "Weighted A*", "UCS", "Beam Search", "BFS", "Greedy", "DFS", "IDA*"]

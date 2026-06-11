@@ -182,7 +182,6 @@ def _solve_greedy(level: Level, start_time: float, stop_event: Optional[threadin
 
 def _solve_astar(level: Level, start_time: float, stop_event: Optional[threading.Event] = None, progress_state: Optional[List[int]] = None) -> SolveResult:
     start_state = level.initial_state()
-    start_key = start_state.zobrist_hash
     start_exact = (start_state.player, start_state.boxes)
     if is_goal(start_state, level.goals):
         return SolveResult("A*", True, [], 0)
@@ -190,17 +189,16 @@ def _solve_astar(level: Level, start_time: float, stop_event: Optional[threading
     start_h = heuristic(start_state, level)
     priority_queue: List[Tuple[int, int, int, State]] = [(start_h, 0, counter, start_state)]
     parent: Dict[Tuple[Position, Tuple[Position, ...]], Optional[Tuple[Tuple[Position, Tuple[Position, ...]], Tuple[int, ...]]]] = {start_exact: None}
-    best_g_cost: Dict[int, int] = {start_key: 0}
+    best_g_cost: Dict[Tuple[Position, Tuple[Position, ...]], int] = {start_exact: 0}
     expanded = 0
     while priority_queue:
         _, neg_g, _, curr_state = heapq.heappop(priority_queue)
         g = -neg_g
-        curr_key = curr_state.zobrist_hash
         curr_exact = (curr_state.player, curr_state.boxes)
         if is_goal(curr_state, level.goals):
             actions = reconstruct_path(parent, curr_exact)
             return SolveResult("A*", True, actions, expanded)
-        if g > best_g_cost.get(curr_key, INFINITY):
+        if g > best_g_cost.get(curr_exact, INFINITY):
             continue
         expanded += 1
         if expanded & 1023 == 0:
@@ -211,14 +209,13 @@ def _solve_astar(level: Level, start_time: float, stop_event: Optional[threading
             if progress_state is not None:
                 progress_state[0] = expanded
         for path_segment, neighbor_state in get_macro_neighbors(curr_state, level):
-            neighbor_key = neighbor_state.zobrist_hash
             neighbor_exact = (neighbor_state.player, neighbor_state.boxes)
             new_g = g + len(path_segment)
-            if new_g >= best_g_cost.get(neighbor_key, INFINITY):
+            if new_g >= best_g_cost.get(neighbor_exact, INFINITY):
                 continue
             if has_deadlock(neighbor_state, level):
                 continue
-            best_g_cost[neighbor_key] = new_g
+            best_g_cost[neighbor_exact] = new_g
             parent[neighbor_exact] = (curr_exact, path_segment)
             new_h = heuristic(neighbor_state, level)
             new_f = new_g + new_h
@@ -365,7 +362,6 @@ def _solve_beam_search(level: Level, start_time: float, beam_width: int = 3000, 
 
 def _solve_idastar(level: Level, start_time: float, stop_event: Optional[threading.Event] = None, progress_state: Optional[List[int]] = None) -> SolveResult:
     start_state = level.initial_state()
-    start_key = start_state.zobrist_hash
     start_exact = (start_state.player, start_state.boxes)
     if is_goal(start_state, level.goals):
         return SolveResult("IDA*", True, [])
@@ -375,20 +371,14 @@ def _solve_idastar(level: Level, start_time: float, stop_event: Optional[threadi
         if time.perf_counter() - start_time > MAX_TIME:
             return SolveResult("IDA*", False, expanded=expanded, message="Timeout.")
         min_cutoff = INFINITY
-        stack: List[Tuple[State, int, Tuple[Position, Tuple[Position, ...]], Tuple[int, ...], bool]] = [(start_state, 0, start_exact, (), False)]
-        path_set: Set[int] = set()
+        stack: List[Tuple[State, int, Tuple[Position, Tuple[Position, ...]], Tuple[int, ...]]] = [(start_state, 0, start_exact, ())]
         parent: Dict[Tuple[Position, Tuple[Position, ...]], Optional[Tuple[Tuple[Position, Tuple[Position, ...]], Tuple[int, ...]]]] = {}
         visited_cost: Dict[int, int] = {}
         while stack:
-            curr_state, g, parent_exact, segment, is_backtrack = stack.pop()
+            curr_state, g, parent_exact, segment = stack.pop()
             curr_key = curr_state.zobrist_hash
             curr_exact = (curr_state.player, curr_state.boxes)
-            if is_backtrack:
-                path_set.remove(curr_key)
-                if curr_exact in parent:
-                    del parent[curr_exact]
-                continue
-            if curr_key in visited_cost and visited_cost[curr_key] <= g:
+            if visited_cost.get(curr_key, INFINITY) <= g:
                 continue
             visited_cost[curr_key] = g
             if curr_exact != start_exact:
@@ -396,8 +386,6 @@ def _solve_idastar(level: Level, start_time: float, stop_event: Optional[threadi
             if is_goal(curr_state, level.goals):
                 actions = reconstruct_path(parent, curr_exact)
                 return SolveResult("IDA*", True, actions, expanded)
-            path_set.add(curr_key)
-            stack.append((curr_state, g, parent_exact, segment, True))
             expanded += 1
             if expanded & 1023 == 0:
                 if time.perf_counter() - start_time > MAX_TIME:
@@ -406,11 +394,8 @@ def _solve_idastar(level: Level, start_time: float, stop_event: Optional[threadi
                     return SolveResult("IDA*", False, expanded=expanded, message="Cancelled by user.")
                 if progress_state is not None:
                     progress_state[0] = expanded
-            neighbors_list = []
+            neighbors_list: List[Tuple[int, Tuple[int, ...], State, int]] = []
             for path_segment, neighbor_state in get_macro_neighbors(curr_state, level):
-                neighbor_key = neighbor_state.zobrist_hash
-                if neighbor_key in path_set:
-                    continue
                 if has_deadlock(neighbor_state, level):
                     continue
                 new_g = g + len(path_segment)
@@ -423,7 +408,7 @@ def _solve_idastar(level: Level, start_time: float, stop_event: Optional[threadi
                     neighbors_list.append((f, path_segment, neighbor_state, new_g))
             neighbors_list.sort(key=lambda x: x[0], reverse=True)
             for f, path_segment, neighbor_state, new_g in neighbors_list:
-                stack.append((neighbor_state, new_g, curr_exact, path_segment, False))
+                stack.append((neighbor_state, new_g, curr_exact, path_segment))
         if min_cutoff == INFINITY:
             return SolveResult("IDA*", False, expanded=expanded, message="No solution found.")
         limit = min_cutoff
@@ -442,7 +427,7 @@ def solve(algorithm: str, level: Level, stop_event: Optional[threading.Event] = 
         elif algorithm == "A*":
             result = _solve_astar(level, start_time, stop_event, progress_state)
         elif algorithm == "Weighted A*": 
-            result = _solve_weighted_astar(level, start_time, weight=4.0, stop_event=stop_event, progress_state=progress_state)
+            result = _solve_weighted_astar(level, start_time, weight=1.0, stop_event=stop_event, progress_state=progress_state)
         elif algorithm == "Beam Search": 
             result = _solve_beam_search(level, start_time, beam_width=1000, stop_event=stop_event, progress_state=progress_state)
         elif algorithm == "IDA*":
@@ -455,5 +440,4 @@ def solve(algorithm: str, level: Level, stop_event: Optional[threading.Event] = 
         result = SolveResult(algorithm, False, message=f"Error: {e.__class__.__name__}")
     elapsed_time_ms = (time.perf_counter() - start_time) * 1000.0
     result.elapsed_ms = elapsed_time_ms
-    result.memory_kb = 0.0
     return result

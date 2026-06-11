@@ -547,7 +547,6 @@ class GameUI:
                 ("PATH:", str(result.steps)),
                 ("NODES:", f"{result.expanded:,}"),
                 ("TIME:", time_str),
-                ("RAM:", f"{result.memory_kb:.1f} KB")
             ]
             
             for label, val in rows:

@@ -57,7 +57,7 @@ def precompute_distances(level: Level) -> Dict[Position, Dict[Position, int]]:
             b_pos, p_pos = queue.popleft()
             cost = state_cost[(b_pos, p_pos)]
             
-            if b_pos not in goal_distances:
+            if b_pos not in goal_distances or cost < goal_distances[b_pos]:
                 goal_distances[b_pos] = cost
             
             pr, pc = p_pos
@@ -65,9 +65,10 @@ def precompute_distances(level: Level) -> Dict[Position, Dict[Position, int]]:
                 new_p = (pr + dr, pc + dc)
                 if new_p != b_pos and not level.is_wall(new_p):
                     new_state = (b_pos, new_p)
-                    if new_state not in state_cost or cost < state_cost[new_state]:
-                        state_cost[new_state] = cost
-                        queue.appendleft(new_state) 
+                    new_cost = cost + 1
+                    if new_state not in state_cost or new_cost < state_cost[new_state]:
+                        state_cost[new_state] = new_cost
+                        queue.append(new_state) 
                         
             br, bc = b_pos
             dr, dc = br - pr, bc - pc
@@ -91,33 +92,51 @@ def _compute_heuristic_value(boxes: Tuple[Position, ...], goals: Tuple[Position,
     if not boxes:
         return 0
     dist_map = _level_distances[lvl_id]
-    total_cost = 0
-    
-    for b in boxes:
-        min_dist = min(dist_map[g].get(b, 99999) for g in goals)
-        if min_dist >= 99999:
-            return 999999 
-        total_cost += min_dist
-        
-    return total_cost
+    n = len(boxes)
+    memo: Dict[Tuple[int, int], int] = {}
+
+    def dfs(b_idx: int, g_mask: int) -> int:
+        if b_idx == n:
+            return 0
+        state_key = (b_idx, g_mask)
+        if state_key in memo:
+            return memo[state_key]
+        res = 999999
+        b = boxes[b_idx]
+        for g_idx in range(n):
+            if not (g_mask & (1 << g_idx)):
+                d = dist_map[goals[g_idx]].get(b, 99999)
+                if d < 99999:
+                    cost = d + dfs(b_idx + 1, g_mask | (1 << g_idx))
+                    if cost < res:
+                        res = cost
+        memo[state_key] = res
+        return res
+
+    val = dfs(0, 0)
+    return val if val < 999999 else 999999
 
 def heuristic(state: State, level: Level) -> int:
     precompute_distances(level)
     lvl_id = _get_level_id(level)
-    
     cache_key = (lvl_id, state.boxes)
+    
     if cache_key in _heuristic_cache:
-        return _heuristic_cache[cache_key]
-    
-    if lvl_id not in _level_sorted_goals:
-        _level_sorted_goals[lvl_id] = tuple(sorted(level.goals))
+        base_h = _heuristic_cache[cache_key]
+    else:
+        if lvl_id not in _level_sorted_goals:
+            _level_sorted_goals[lvl_id] = tuple(sorted(level.goals))
+        base_h = _compute_heuristic_value(state.boxes, _level_sorted_goals[lvl_id], lvl_id)
+        _heuristic_cache[cache_key] = base_h
         
-    base_h = _compute_heuristic_value(state.boxes, _level_sorted_goals[lvl_id], lvl_id)
-    
-    if base_h >= 99999:
-        base_h = 999999
+    if base_h >= 999999:
+        return 999999
         
-    _heuristic_cache[cache_key] = base_h
+    unsolved = [b for b in state.boxes if b not in level.goals]
+    if unsolved:
+        pr, pc = state.player
+        return base_h + min(abs(pr - br) + abs(pc - bc) for br, bc in unsolved)
+        
     return base_h
 
 def greedy_heuristic(state: State, level: Level) -> float:
@@ -176,7 +195,6 @@ def is_freeze_deadlock(boxes_set: Set[Position], level: Level) -> bool:
                     
     return False
 
-
 def has_deadlock(state: State, level: Level) -> bool:
     lvl_id = _get_level_id(level)
     cache_key = (lvl_id, state.boxes)
@@ -218,39 +236,11 @@ def has_deadlock(state: State, level: Level) -> bool:
     _deadlock_cache[cache_key] = False
     return False
 
-_canonical_cache: Dict[Tuple[Position, Tuple[Position, ...]], Position] = {}
-
-def _get_canonical_player(start_pos: Position, boxes_set: Set[Position], level: Level) -> Position:
-    boxes_tup = tuple(sorted(boxes_set))
-    cache_key = (start_pos, boxes_tup)
-    
-    if cache_key in _canonical_cache:
-        return _canonical_cache[cache_key]
-
-    queue = [start_pos]
-    visited = {start_pos}
-    min_pos = start_pos
-    is_wall = level.is_wall
-    
-    for r, c in queue:
-        if (r, c) < min_pos:
-            min_pos = (r, c)
-        for nr, nc in ((r-1, c), (r+1, c), (r, c-1), (r, c+1)):
-            nxt = (nr, nc)
-            if nxt not in visited and nxt not in boxes_set and not is_wall(nxt):
-                visited.add(nxt)
-                queue.append(nxt)
-                
-    for v in visited:
-        _canonical_cache[(v, boxes_tup)] = min_pos
-        
-    return min_pos
-
 def get_macro_neighbors(state: State, level: Level) -> Iterable[Tuple[Tuple[int, ...], State]]:
     queue: Deque[Tuple[Position, Tuple[int, ...]]] = deque([(state.player, ())])
     visited_player: Set[Position] = {state.player}
-    
-    boxes_set = set(state.boxes) 
+    boxes_set = set(state.boxes)
+    zt = level.zobrist_table
     
     while queue:
         curr_p, path = queue.popleft()
@@ -263,15 +253,11 @@ def get_macro_neighbors(state: State, level: Level) -> Iterable[Tuple[Tuple[int,
                 
                 if not level.is_wall(beyond) and beyond not in boxes_set:
                     act_int = _ACTION_TO_INT[action]
-                    
                     new_boxes = tuple(sorted(b if b != target else beyond for b in state.boxes))
-                    new_boxes_set = set(new_boxes)
                     
-                    canonical_p = _get_canonical_player(target, new_boxes_set, level)
-                    
-                    h_val = level.zobrist_table.player_keys[canonical_p]
+                    h_val = zt.player_keys[target]
                     for b in new_boxes:
-                        h_val ^= level.zobrist_table.box_keys[b]
+                        h_val ^= zt.box_keys[b]
                         
                     yield path + (act_int,), State(target, new_boxes, h_val)
                     
