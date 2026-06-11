@@ -1,14 +1,14 @@
-import functools
+import random
 from collections import deque
 from dataclasses import dataclass, field
 from typing import Iterable, List, Tuple, Dict, Optional, Set, Deque
 
-import numpy as np
-from scipy.optimize import linear_sum_assignment
-
 from .constants import ACTIONS
 from .level import Level
 from .state import Position, State
+
+_ACTION_TO_INT = {act: i for i, act in enumerate(ACTIONS.keys())}
+_INT_TO_ACTION = {i: act for i, act in enumerate(ACTIONS.keys())}
 
 @dataclass
 class SolveResult:
@@ -84,15 +84,16 @@ def precompute_distances(level: Level) -> Dict[Position, Dict[Position, int]]:
     _level_distances[lvl_id] = dist_map
     return dist_map
 
-@functools.lru_cache(maxsize=300000)
+_heuristic_cache: Dict[Tuple[str, Tuple[Position, ...]], int] = {}
+_deadlock_cache: Dict[Tuple[str, Tuple[Position, ...]], bool] = {}
+
 def _compute_heuristic_value(boxes: Tuple[Position, ...], goals: Tuple[Position, ...], lvl_id: str) -> int:
     if not boxes:
         return 0
-
     dist_map = _level_distances[lvl_id]
     n = len(boxes)
-    
     max_mask = 1 << n
+    
     dp = [999999] * max_mask
     dp[0] = 0
     
@@ -121,115 +122,143 @@ def heuristic(state: State, level: Level) -> int:
     precompute_distances(level)
     lvl_id = _get_level_id(level)
     
+    cache_key = (lvl_id, state.boxes)
+    if cache_key in _heuristic_cache:
+        return _heuristic_cache[cache_key]
+    
     if lvl_id not in _level_sorted_goals:
         _level_sorted_goals[lvl_id] = tuple(sorted(level.goals))
         
     base_h = _compute_heuristic_value(state.boxes, _level_sorted_goals[lvl_id], lvl_id)
     
     if base_h >= 99999:
-        return 999999 
+        base_h = 999999
         
+    _heuristic_cache[cache_key] = base_h
+    return base_h
+
+def greedy_heuristic(state: State, level: Level) -> float:
+    base_h = heuristic(state, level)
+    
+    if base_h >= 99999:
+        return 999999.0
+
     boxes_set = set(state.boxes)
     unsolved_boxes = boxes_set - level.goals
     unsolved_count = len(unsolved_boxes)
-    
+
     player_dist = 0
     if unsolved_boxes:
         pr, pc = state.player
         player_dist = min(abs(pr - br) + abs(pc - bc) for br, bc in unsolved_boxes)
-        
+
     penalty = 0
     for br, bc in unsolved_boxes:
         v_wall = level.is_wall((br - 1, bc)) or level.is_wall((br + 1, bc))
         h_wall = level.is_wall((br, bc - 1)) or level.is_wall((br, bc + 1))
         
         if v_wall and h_wall:
-            penalty += 6  
+            penalty += 6
         elif v_wall or h_wall:
-            penalty += 2  
-            
-    return base_h + (unsolved_count * 10) + player_dist + penalty
+            penalty += 2
 
-
-def is_freeze_deadlock(boxes_set: Set[Position], unsolved_boxes: Set[Position], level: Level) -> bool:
-    frozen_boxes: Set[Position] = set()
-    changed: bool = True
+    jitter = random.uniform(0.0, 0.5)
     
-    while changed:
-        changed = False
-        for r, c in boxes_set:
-            if (r, c) in frozen_boxes:
-                continue
-            
-            v_blocked: bool = (level.is_wall((r-1, c)) or (r-1, c) in frozen_boxes) or \
-                              (level.is_wall((r+1, c)) or (r+1, c) in frozen_boxes)
-                            
-            h_blocked: bool = (level.is_wall((r, c-1)) or (r, c-1) in frozen_boxes) or \
-                              (level.is_wall((r, c+1)) or (r, c+1) in frozen_boxes)
-                            
-            if v_blocked and h_blocked:
-                if (r, c) in unsolved_boxes:
-                    return True 
-                frozen_boxes.add((r, c))
-                changed = True
-                
-    return False
+    return float(base_h + (unsolved_count * 10) + player_dist + penalty + jitter)
 
-def is_tunnel_deadlock(boxes_set: Set[Position], unsolved_boxes: Set[Position], level: Level) -> bool:
-    for r, c in unsolved_boxes:
-        if (r, c+1) in boxes_set:
-            if level.is_wall((r-1, c)) and level.is_wall((r+1, c)) and \
-               level.is_wall((r-1, c+1)) and level.is_wall((r+1, c+1)):
-                return True
+# def is_freeze_deadlock(boxes_set: Set[Position], unsolved_boxes: Set[Position], level: Level) -> bool:
+#     frozen_boxes: Set[Position] = set()
+#     changed: bool = True
+    
+#     while changed:
+#         changed = False
+#         for r, c in boxes_set:
+#             if (r, c) in frozen_boxes:
+#                 continue
+            
+#             v_blocked: bool = (level.is_wall((r-1, c)) or (r-1, c) in frozen_boxes) or \
+#                               (level.is_wall((r+1, c)) or (r+1, c) in frozen_boxes)
+                            
+#             h_blocked: bool = (level.is_wall((r, c-1)) or (r, c-1) in frozen_boxes) or \
+#                               (level.is_wall((r, c+1)) or (r, c+1) in frozen_boxes)
+                            
+#             if v_blocked and h_blocked:
+#                 if (r, c) in unsolved_boxes:
+#                     return True 
+#                 frozen_boxes.add((r, c))
+#                 changed = True
                 
-        if (r+1, c) in boxes_set:
-            if level.is_wall((r, c-1)) and level.is_wall((r, c+1)) and \
-               level.is_wall((r+1, c-1)) and level.is_wall((r+1, c+1)):
-                return True
+#     return False
+
+# def is_tunnel_deadlock(boxes_set: Set[Position], unsolved_boxes: Set[Position], level: Level) -> bool:
+#     for r, c in unsolved_boxes:
+#         if (r, c+1) in boxes_set:
+#             if level.is_wall((r-1, c)) and level.is_wall((r+1, c)) and \
+#                level.is_wall((r-1, c+1)) and level.is_wall((r+1, c+1)):
+#                 return True
                 
-    return False
+#         if (r+1, c) in boxes_set:
+#             if level.is_wall((r, c-1)) and level.is_wall((r, c+1)) and \
+#                level.is_wall((r+1, c-1)) and level.is_wall((r+1, c+1)):
+#                 return True
+                
+#     return False
 
 def has_deadlock(state: State, level: Level) -> bool:
+    lvl_id = _get_level_id(level)
+    cache_key = (lvl_id, state.boxes)
+    if cache_key in _deadlock_cache:
+        return _deadlock_cache[cache_key]
+
     if any(box in level.deadlocks for box in state.boxes):
+        _deadlock_cache[cache_key] = True
         return True
         
     boxes_set = set(state.boxes)
-    unsolved_boxes = boxes_set - level.goals
     
-    if not unsolved_boxes:
-        return False
-        
-    for r, c in unsolved_boxes:
-        if ((r-1, c) in boxes_set or level.is_wall((r-1, c))) and \
-           ((r, c-1) in boxes_set or level.is_wall((r, c-1))) and \
-           ((r-1, c-1) in boxes_set or level.is_wall((r-1, c-1))):
-            return True
+    for r, c in state.boxes:
+        for dr, dc in [(-1, -1), (-1, 0), (0, -1), (0, 0)]:
+            tl_r, tl_c = r + dr, c + dc
+            is_solid = True
+            boxes_in_2x2 = []
             
-        if ((r-1, c) in boxes_set or level.is_wall((r-1, c))) and \
-           ((r, c+1) in boxes_set or level.is_wall((r, c+1))) and \
-           ((r-1, c+1) in boxes_set or level.is_wall((r-1, c+1))):
-            return True
-            
-        if ((r+1, c) in boxes_set or level.is_wall((r+1, c))) and \
-           ((r, c-1) in boxes_set or level.is_wall((r, c-1))) and \
-           ((r+1, c-1) in boxes_set or level.is_wall((r+1, c-1))):
-            return True
-            
-        if ((r+1, c) in boxes_set or level.is_wall((r+1, c))) and \
-           ((r, c+1) in boxes_set or level.is_wall((r, c+1))) and \
-           ((r+1, c+1) in boxes_set or level.is_wall((r+1, c+1))):
-            return True
-
-    if is_freeze_deadlock(boxes_set, unsolved_boxes, level):
-        return True
-        
-    if is_tunnel_deadlock(boxes_set, unsolved_boxes, level):
-        return True
-
+            for i in range(2):
+                for j in range(2):
+                    curr_r, curr_c = tl_r + i, tl_c + j
+                    if (curr_r, curr_c) in boxes_set:
+                        boxes_in_2x2.append((curr_r, curr_c))
+                    elif not level.is_wall((curr_r, curr_c)):
+                        is_solid = False
+                        break
+                if not is_solid:
+                    break
+                    
+            if is_solid:
+                if any(b not in level.goals for b in boxes_in_2x2):
+                    _deadlock_cache[cache_key] = True
+                    return True
+                    
+    _deadlock_cache[cache_key] = False
     return False
 
-def get_macro_neighbors(state: State, level: Level) -> Iterable[Tuple[List[str], State]]:
-    queue: Deque[Tuple[Position, List[str]]] = deque([(state.player, [])])
+def _get_canonical_player(start_pos: Position, boxes_set: Set[Position], level: Level) -> Position:
+    queue = [start_pos]
+    visited = {start_pos}
+    min_pos = start_pos
+    is_wall = level.is_wall
+    
+    for r, c in queue:
+        if (r, c) < min_pos:
+            min_pos = (r, c)
+        for nr, nc in ((r-1, c), (r+1, c), (r, c-1), (r, c+1)):
+            nxt = (nr, nc)
+            if nxt not in visited and nxt not in boxes_set and not is_wall(nxt):
+                visited.add(nxt)
+                queue.append(nxt)
+    return min_pos
+
+def get_macro_neighbors(state: State, level: Level) -> Iterable[Tuple[Tuple[int, ...], State]]:
+    queue: Deque[Tuple[Position, Tuple[int, ...]]] = deque([(state.player, ())])
     visited_player: Set[Position] = {state.player}
     
     boxes_set = set(state.boxes) 
@@ -244,23 +273,31 @@ def get_macro_neighbors(state: State, level: Level) -> Iterable[Tuple[List[str],
                 beyond = (target[0] + dr, target[1] + dc)
                 
                 if not level.is_wall(beyond) and beyond not in boxes_set:
+                    act_int = _ACTION_TO_INT[action]
                     
-                    new_boxes = tuple(sorted([b for b in state.boxes if b != target] + [beyond]))
+                    new_boxes_list = list(state.boxes)
+                    new_boxes_list.remove(target)
+                    new_boxes_list.append(beyond)
+                    new_boxes_list.sort()
                     
-                    h_val = state.zobrist_hash
-                    h_val ^= level.zobrist_table.player_keys[state.player] 
-                    h_val ^= level.zobrist_table.player_keys[target]       
-                    h_val ^= level.zobrist_table.box_keys[target]          
-                    h_val ^= level.zobrist_table.box_keys[beyond]          
+                    new_boxes = tuple(new_boxes_list)
+                    new_boxes_set = set(new_boxes)
                     
-                    yield path + [action], State(target, new_boxes, h_val)
+                    canonical_p = _get_canonical_player(target, new_boxes_set, level)
+                    
+                    h_val = level.zobrist_table.player_keys[canonical_p]
+                    for b in new_boxes:
+                        h_val ^= level.zobrist_table.box_keys[b]
+                        
+                    yield path + (act_int,), State(target, new_boxes, h_val)
                     
             elif not level.is_wall(target):
                 if target not in visited_player:
                     visited_player.add(target)
-                    queue.append((target, path + [action]))
+                    act_int = _ACTION_TO_INT[action]
+                    queue.append((target, path + (act_int,)))
 
-def reconstruct_path(parent: Dict[int, Optional[Tuple[int, List[str]]]], curr_key: int) -> List[str]:
+def reconstruct_path(parent: Dict[int, Optional[Tuple[int, Tuple[int, ...]]]], curr_key: int) -> List[str]:
     final_path: List[str] = []
     
     while curr_key in parent:
@@ -268,7 +305,7 @@ def reconstruct_path(parent: Dict[int, Optional[Tuple[int, List[str]]]], curr_ke
         if parent_info is None:
             break
         curr_key, action_segment = parent_info
-        final_path.extend(reversed(action_segment))
+        final_path.extend(reversed([_INT_TO_ACTION[act_int] for act_int in action_segment]))
         
     final_path.reverse()
     return final_path
