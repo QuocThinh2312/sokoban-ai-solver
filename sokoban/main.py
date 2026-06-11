@@ -1,6 +1,7 @@
 import queue
 import threading
 import random
+import time
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -38,9 +39,9 @@ def load_all_levels() -> List[Level]:
         raise SystemExit("No level files found in maps/ directory.")
     return all_levels
 
-def ai_solver_thread(algorithm: str, level: Level, result_queue: queue.Queue, task_id: int) -> None:
+def ai_solver_thread(algorithm: str, level: Level, result_queue: queue.Queue, task_id: int, stop_event: threading.Event, progress_state: List[int]) -> None:
     try:
-        result = solve(algorithm, level)
+        result = solve(algorithm, level, stop_event, progress_state)
         result_queue.put((task_id, algorithm, result))
     except Exception as e:
         import traceback
@@ -64,17 +65,25 @@ def main() -> None:
     
     status_text = "Select an algorithm, then press Space or Run AI."
     ai_steps: List[str] = []
-    
     playback_timer = 0
 
     result_queue = queue.Queue()
     is_solving = False
     current_task_id = 0
+    
+    stop_event = threading.Event()
+    progress_state = [0]
+    solve_start_time = 0.0
 
     def reset_level_state(index: int, message: str) -> None:
         nonlocal game_session, ai_steps, current_result, status_text, is_solving, current_task_id
+        
+        if is_solving:
+            stop_event.set() 
+            
         game_session = GameSession(all_levels[index])
         ai_steps = []
+        ui.is_paused = False
         current_result = None
         results_by_algo.clear()
         is_solving = False
@@ -130,6 +139,7 @@ def main() -> None:
                     elif action_type == "restart":
                         game_session.restart()
                         ai_steps.clear()
+                        ui.is_paused = False
                         status_text = "Restarted the current level."
                     elif action_type == "pause" and not ui.is_paused:
                         ui.is_paused = True
@@ -152,6 +162,10 @@ def main() -> None:
                     elif action_type == "select_map_item":
                         level_index = int(str(action_value))
                         reset_level_state(level_index, f"Selected level: {all_levels[level_index].name}")
+                    elif action_type == "cancel_ai": 
+                        if is_solving:
+                            stop_event.set()
+                            status_text = "Cancelling AI..."
 
             trigger_ai = (event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE) or \
                          (event.type == pygame.MOUSEBUTTONDOWN and action_tuple is not None and action_tuple[0] == "run_ai")
@@ -161,11 +175,17 @@ def main() -> None:
                     status_text = "Please wait..."
                     continue
                 game_session.restart()
+                ui.is_paused = False
                 is_solving = True
                 current_result = None
                 current_task_id += 1
+                
+                stop_event.clear()
+                progress_state[0] = 0
+                solve_start_time = time.perf_counter()
+                
                 status_text = f"Computing with {current_algo}..."
-                threading.Thread(target=ai_solver_thread, args=(current_algo, game_session.level, result_queue, current_task_id), daemon=True).start()
+                threading.Thread(target=ai_solver_thread, args=(current_algo, game_session.level, result_queue, current_task_id, stop_event, progress_state), daemon=True).start()
                 continue
 
             if event.type == pygame.KEYDOWN:
@@ -179,6 +199,7 @@ def main() -> None:
                 elif key == pygame.K_r:
                     game_session.restart()
                     ai_steps.clear()
+                    ui.is_paused = False
                     status_text = "Restarted."
                 elif key == pygame.K_u and game_session.undo():
                     pass
@@ -204,6 +225,9 @@ def main() -> None:
                 if not ai_steps and game_session.has_won():
                     status_text = "AI completed the level!"
 
+        compute_time = time.perf_counter() - solve_start_time if is_solving else 0.0
+        compute_nodes = progress_state[0]
+
         ui.draw(
             game_session=game_session, 
             current_algo=current_algo, 
@@ -215,7 +239,9 @@ def main() -> None:
             is_solving=is_solving, 
             is_ai_playing=is_ai_playing, 
             results_by_algo=results_by_algo, 
-            dt=dt
+            dt=dt,
+            compute_time=compute_time,
+            compute_nodes=compute_nodes
         )
 
     pygame.quit()

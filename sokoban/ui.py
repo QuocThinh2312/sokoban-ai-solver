@@ -297,7 +297,8 @@ class GameUI:
     def draw(self, game_session: GameSession, current_algo: str, current_result: Optional[SolveResult], 
            level_index: int, total_levels: int, level_names: List[str], status_text: str, 
            is_solving: bool, is_ai_playing: bool = False,
-           results_by_algo: Optional[Dict[str, SolveResult]] = None, dt: int = 16) -> None:
+           results_by_algo: Optional[Dict[str, SolveResult]] = None, dt: int = 16,
+           compute_time: float = 0.0, compute_nodes: int = 0) -> None:
            
         if results_by_algo is None: 
             results_by_algo = {}
@@ -312,9 +313,9 @@ class GameUI:
 
         self.screen.fill(COLOR_BG)
         self._draw_board(game_session, is_ai_playing, dt)
-        self._draw_sidebar(current_algo, results_by_algo, is_solving, is_ai_playing)
-        self._draw_dashboard(game_session, current_result, level_index, total_levels, is_ai_playing)
-        self._draw_header()  
+        self._draw_sidebar(current_algo, results_by_algo, is_solving, is_ai_playing, compute_time, compute_nodes)
+        self._draw_dashboard(game_session, current_result, level_index, total_levels, is_ai_playing, is_solving)
+        self._draw_header() 
         
         if self.show_map_list: 
             self._draw_map_popup(level_names, level_index)
@@ -370,7 +371,7 @@ class GameUI:
         self.screen.blit(self.font_large.render("SOKOBAN", True, COLOR_PRIMARY), (20, 18))
         self.screen.blit(self.font_bold.render("AI SOLVER", True, COLOR_TEXT), (160, 22))
 
-    def _draw_sidebar(self, current_algo: str, results_by_algo: Dict[str, SolveResult], is_solving: bool, is_ai_playing: bool) -> None:
+    def _draw_sidebar(self, current_algo: str, results_by_algo: Dict[str, SolveResult], is_solving: bool, is_ai_playing: bool, compute_time: float, compute_nodes: int) -> None:
         rect = pygame.Rect(0, HEADER_HEIGHT - 3, SIDEBAR_WIDTH, self.window_height - HEADER_HEIGHT + 3)
         self._draw_panel(rect)
         x, y = 20, HEADER_HEIGHT + 20
@@ -425,9 +426,23 @@ class GameUI:
         pygame.draw.rect(self.screen, COLOR_TEXT, (self.slider_rect.x + fill_w - 5, self.slider_rect.y - 4, 10, 22))
 
         btn_y = self.window_height - 68 
-        btn_rect = pygame.Rect(x, btn_y, SIDEBAR_WIDTH - 40, 48)
-        self.button_rects["run_ai"] = btn_rect
-        self._draw_button(btn_rect, "RUN AI", COLOR_SECONDARY if is_solving else COLOR_PRIMARY, is_solving)
+        
+        if is_solving:
+            info_y = btn_y - 45
+            self.screen.blit(self.font_small.render("COMPUTING...", True, COLOR_SECONDARY), (x, info_y))
+            time_str = f"{min(60.0, compute_time):.1f}s"
+            self.screen.blit(self.font_small.render(time_str, True, COLOR_HIGHLIGHT), (x + 150, info_y))
+            
+            node_str = f"Nodes: {compute_nodes:,}"
+            self.screen.blit(self.font_tiny.render(node_str, True, COLOR_TEXT_DIM), (x, info_y + 20))
+            
+            btn_rect = pygame.Rect(x, btn_y, SIDEBAR_WIDTH - 40, 48)
+            self.button_rects["cancel_ai"] = btn_rect
+            self._draw_button(btn_rect, "CANCEL", COLOR_HIGHLIGHT, is_pulse=True)
+        else:
+            btn_rect = pygame.Rect(x, btn_y, SIDEBAR_WIDTH - 40, 48)
+            self.button_rects["run_ai"] = btn_rect
+            self._draw_button(btn_rect, "RUN AI", COLOR_PRIMARY)
 
     def _draw_board(self, game_session: GameSession, is_ai_playing: bool, dt: int) -> None:
         level, state = game_session.level, game_session.state
@@ -504,7 +519,7 @@ class GameUI:
             pygame.draw.rect(self.screen, COLOR_PLAYER_FALLBACK, rect.inflate(-8, -8))
             pygame.draw.rect(self.screen, COLOR_TEXT, rect.inflate(-16, -16))
 
-    def _draw_dashboard(self, game_session: GameSession, result: Optional[SolveResult], level_index: int, total_levels: int, is_ai_playing: bool) -> None:
+    def _draw_dashboard(self, game_session: GameSession, result: Optional[SolveResult], level_index: int, total_levels: int, is_ai_playing: bool, is_solving: bool) -> None:
         x0 = self.window_width - DASHBOARD_WIDTH
         rect = pygame.Rect(x0, HEADER_HEIGHT - 3, DASHBOARD_WIDTH, self.window_height - HEADER_HEIGHT + 3)
         self._draw_panel(rect)
@@ -519,7 +534,10 @@ class GameUI:
         y += 30
         
         if result is None:
-            self.screen.blit(self.font_small.render("AWAITING...", True, COLOR_TEXT_DIM), (x, y))
+            if is_solving:
+                self.screen.blit(self.font_small.render("COMPUTING...", True, COLOR_SECONDARY), (x, y))
+            else:
+                self.screen.blit(self.font_small.render("AWAITING...", True, COLOR_TEXT_DIM), (x, y))
         else:
             time_str = f"{result.elapsed_ms:.1f} ms" if result.elapsed_ms < 1000 else f"{result.elapsed_ms/1000:.2f} s"
             display_algo = result.algorithm.split('(')[0].replace('_', ' ').strip()
@@ -672,7 +690,7 @@ class GameUI:
             draw_rect = rect 
         else:
             if is_pulse and (pygame.time.get_ticks() // 300) % 2 == 0:
-                bg_col = COLOR_HIGHLIGHT
+                bg_col = COLOR_SECONDARY  
             else:
                 bg_col = self._lighten_color(base_color, 40) if is_hovered else base_color
 
