@@ -15,7 +15,7 @@ ACTIONS: Dict[str, Tuple[int, int]] = {
     "R": (0, 1),
 }
 
-SIDEBAR_WIDTH: int = 250
+SIDEBAR_WIDTH: int = 260
 DASHBOARD_WIDTH: int = 270
 HEADER_HEIGHT: int = 60
 FPS: int = 60

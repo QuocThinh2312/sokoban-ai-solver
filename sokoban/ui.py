@@ -89,7 +89,7 @@ class GameUI:
                 try:
                     snd = pygame.mixer.Sound(str(path))
                     if key == "move": snd.set_volume(0.1)
-                    elif key == "click": snd.set_volume(0.3)
+                    elif key == "click": snd.set_volume(0.2)
                     elif key == "select": snd.set_volume(0.05)
                     elif key == "win": snd.set_volume(0.05)
                     self.sounds[key] = snd
@@ -405,7 +405,7 @@ class GameUI:
         pygame.display.flip()
 
     def _draw_subtle_win_notification(self) -> None:
-        text_surf = self.font_large.render("LEVEL COMPLETE!", True, COLOR_TERTIARY)
+        text_surf = self.font_large.render("PUZZLE SOLVED!", True, COLOR_TERTIARY)
         center_x = SIDEBAR_WIDTH + (self.window_width - SIDEBAR_WIDTH - DASHBOARD_WIDTH) // 2
         
         center_y = HEADER_HEIGHT + (self.board_oy - HEADER_HEIGHT) // 2
@@ -604,7 +604,7 @@ class GameUI:
             time_str = f"{result.elapsed_ms:.1f} ms" if result.elapsed_ms < 1000 else f"{result.elapsed_ms/1000:.2f} s"
             display_algo = result.algorithm.split('(')[0].replace('_', ' ').strip()
             rows = [
-                ("ALGO:", display_algo),
+                ("ALGORITHM:", display_algo),
                 ("SOLVED:", "YES" if result.found else "NO"),
                 ("PATH:", str(result.steps)),
                 ("NODES:", f"{result.expanded:,}"),
@@ -659,7 +659,7 @@ class GameUI:
         overlay.fill((0, 0, 0, 180)) 
         self.screen.blit(overlay, (0, 0))
 
-        w, h = 400, 500
+        w, h = 380, 460
         
         center_area_w = self.window_width - SIDEBAR_WIDTH - DASHBOARD_WIDTH
         center_area_h = self.window_height - HEADER_HEIGHT
@@ -671,38 +671,55 @@ class GameUI:
         self.popup_rect = rect 
         self._draw_panel(rect, COLOR_BG)
         
-        self.screen.blit(self.font_large.render("SELECT LEVEL", True, COLOR_PRIMARY), (rect.x + 20, rect.y + 20))
+        self.screen.blit(self.font_large.render("SELECT MAP", True, COLOR_PRIMARY), (rect.x + 20, rect.y + 20))
         
         list_y = rect.y + 60
         list_h = h - 130 
-        list_rect = pygame.Rect(rect.x + 10, list_y, rect.width - 20, list_h)
+        list_rect = pygame.Rect(rect.x + 20, list_y, rect.width - 40, list_h)
         
-        item_h = 42
-        total_content_h = len(level_names) * item_h
+        cols = 4
+        item_size = 70  
+        gap_x = (list_rect.width - 10 - (cols * item_size)) // max(1, cols - 1)
+        gap_y = 20
+        
+        total_rows = math.ceil(len(level_names) / cols)
+        total_content_h = total_rows * (item_size + gap_y)
         
         self.max_scroll_y = max(0, total_content_h - list_h)
         self.map_scroll_y = max(0, min(self.map_scroll_y, self.max_scroll_y))
         
         self.screen.set_clip(list_rect)
         
-        y = list_y - self.map_scroll_y
         self.map_rects.clear()
         for i, name in enumerate(level_names):
-            row_rect = pygame.Rect(rect.x + 10, y, rect.width - 35, 38)
+            r = i // cols
+            c = i % cols
+            
+            item_x = list_rect.x + c * (item_size + gap_x)
+            item_y = list_y - self.map_scroll_y + r * (item_size + gap_y)
+            
+            row_rect = pygame.Rect(item_x, item_y, item_size, item_size)
             
             if row_rect.bottom > list_rect.top and row_rect.top < list_rect.bottom:
                 self.map_rects[i] = row_rect
                 is_hovered = row_rect.collidepoint(pygame.mouse.get_pos())
                 
                 if i == self.temp_selected_map_index:
-                    pygame.draw.rect(self.screen, COLOR_PRIMARY_DIM, row_rect)
-                    pygame.draw.rect(self.screen, COLOR_PRIMARY, row_rect, 2)
+                    pygame.draw.rect(self.screen, COLOR_PRIMARY_DIM, row_rect, border_radius=8)
+                    pygame.draw.rect(self.screen, COLOR_PRIMARY, row_rect, 2, border_radius=8)
+                    text_col = COLOR_BG
                 elif is_hovered:
-                    pygame.draw.rect(self.screen, COLOR_BORDER, row_rect)
+                    pygame.draw.rect(self.screen, (60, 60, 70), row_rect, border_radius=8)
+                    pygame.draw.rect(self.screen, COLOR_BORDER, row_rect, 2, border_radius=8)
+                    text_col = COLOR_TEXT
+                else:
+                    pygame.draw.rect(self.screen, COLOR_PANEL, row_rect, border_radius=8)
+                    pygame.draw.rect(self.screen, COLOR_BORDER, row_rect, 2, border_radius=8)
+                    text_col = COLOR_TEXT_DIM
                     
-                self.screen.blit(self.font_small.render(f"{(i+1):02d} {name.upper()}", True, COLOR_TEXT), (row_rect.x + 10, row_rect.y + 12))
-            y += item_h
-            
+                text_surf = self.font_large.render(str(i + 1), True, text_col)
+                self.screen.blit(text_surf, (row_rect.centerx - text_surf.get_width() // 2, row_rect.centery - text_surf.get_height() // 2))
+                
         self.screen.set_clip(None)
         
         if self.max_scroll_y > 0:
@@ -710,7 +727,7 @@ class GameUI:
             bar_x = rect.right - 18
             
             self.scrollbar_track_rect = pygame.Rect(bar_x, list_y, bar_w, list_h)
-            pygame.draw.rect(self.screen, (30, 30, 40), self.scrollbar_track_rect)
+            pygame.draw.rect(self.screen, (30, 30, 40), self.scrollbar_track_rect, border_radius=4)
             
             thumb_h = max(30, int((list_h / total_content_h) * list_h))
             thumb_y = list_y + (self.map_scroll_y / self.max_scroll_y) * (list_h - thumb_h)

@@ -89,9 +89,8 @@ sokoban-ai-solver/
 
 Sau khi AI giải quyết một màn chơi, bảng dashboard sẽ hiển thị chi tiết các thông số đo lường hiệu năng:
 
-- **ALGO**: Thuật toán được sử dụng.
+- **ALGORITHM**: Thuật toán được sử dụng.
 - **SOLVED**: Trạng thái hoàn thành (YES / NO).
 - **PATH**: Số bước đi thực tế để giải map.
 - **NODES**: Số lượng trạng thái đã mở rộng trong bộ nhớ.
 - **TIME**: Thời gian chạy thuật toán (ms hoặc s)
-- **RAM**: Ước lượng bộ nhớ đã tiêu thụ (KB).
