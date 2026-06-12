@@ -48,25 +48,31 @@ def _solve_bfs(level: Level, start_time: float, stop_event: Optional[threading.E
             queue.append(neighbor_state)
     return SolveResult("BFS", False, expanded=expanded, message="No solution found.")
 
+def _dfs_evaluate(state: State, level: Level) -> Tuple[int, int]:
+    h_val = heuristic(state, level)
+    unsolved_count = 0
+    for b in state.boxes:
+        if b not in level.goals:
+            unsolved_count += 1
+    return (unsolved_count, h_val)
+
 def _solve_dfs(level: Level, start_time: float, stop_event: Optional[threading.Event] = None, progress_state: Optional[List[int]] = None) -> SolveResult:
+    from .solver_utils import _INT_TO_ACTION
     start_state = level.initial_state()
-    start_key = start_state.zobrist_hash
-    start_exact = (start_state.player, start_state.boxes)
     if is_goal(start_state, level.goals):
         return SolveResult("DFS", True, actions=[])
-    stack: List[Tuple[State, int]] = [(start_state, 0)]
-    parent: Dict[Tuple[Position, Tuple[Position, ...]], Optional[Tuple[Tuple[Position, Tuple[Position, ...]], Tuple[int, ...]]]] = {start_exact: None}
-    best_depth: Dict[int, int] = {start_key: 0}
+
+    stack: List[Tuple[State, Tuple[int, ...]]] = [(start_state, ())]
+    visited: Set[int] = {start_state.zobrist_hash}
     expanded = 0
+
     while stack:
-        curr_state, depth = stack.pop()
-        curr_key = curr_state.zobrist_hash
-        curr_exact = (curr_state.player, curr_state.boxes)
+        curr_state, path = stack.pop()
+        
         if is_goal(curr_state, level.goals):
-            actions = reconstruct_path(parent, curr_exact)
+            actions = [_INT_TO_ACTION[act] for act in path]
             return SolveResult("DFS", True, actions, expanded)
-        if depth > best_depth.get(curr_key, INFINITY):
-            continue
+
         expanded += 1
         if expanded & 1023 == 0:
             if time.perf_counter() - start_time > MAX_TIME:
@@ -75,16 +81,24 @@ def _solve_dfs(level: Level, start_time: float, stop_event: Optional[threading.E
                 return SolveResult("DFS", False, expanded=expanded, message="Cancelled by user.")
             if progress_state is not None:
                 progress_state[0] = expanded
+
+        neighbors: List[Tuple[Tuple[int, int], int, State, Tuple[int, ...]]] = []
         for path_segment, neighbor_state in get_macro_neighbors(curr_state, level):
-            neighbor_key = neighbor_state.zobrist_hash
-            neighbor_exact = (neighbor_state.player, neighbor_state.boxes)
-            new_depth = depth + len(path_segment)
+            n_key = neighbor_state.zobrist_hash
+            if n_key in visited:
+                continue
             if has_deadlock(neighbor_state, level):
                 continue
-            if new_depth < best_depth.get(neighbor_key, INFINITY):
-                best_depth[neighbor_key] = new_depth
-                parent[neighbor_exact] = (curr_exact, path_segment)
-                stack.append((neighbor_state, new_depth))
+            
+            score = _dfs_evaluate(neighbor_state, level)
+            neighbors.append((score, n_key, neighbor_state, path + path_segment))
+
+        neighbors.sort(key=lambda x: x[0], reverse=True)
+
+        for _, n_key, n_state, n_path in neighbors:
+            visited.add(n_key)
+            stack.append((n_state, n_path))
+
     return SolveResult("DFS", False, expanded=expanded, message="No solution found.")
 
 def _solve_ucs(level: Level, start_time: float, stop_event: Optional[threading.Event] = None, progress_state: Optional[List[int]] = None) -> SolveResult:
@@ -337,31 +351,35 @@ def _solve_beam_search(level: Level, start_time: float, beam_width: int = 1500, 
     return SolveResult("Beam Search", False, expanded=expanded, message="Timeout.")
 
 def _solve_idastar(level: Level, start_time: float, stop_event: Optional[threading.Event] = None, progress_state: Optional[List[int]] = None) -> SolveResult:
+    from .solver_utils import _INT_TO_ACTION
     start_state = level.initial_state()
-    start_exact = (start_state.player, start_state.boxes)
+    
     if is_goal(start_state, level.goals):
         return SolveResult("IDA*", True, [])
+        
     limit = heuristic(start_state, level)
     expanded = 0
+    
     while True:
         if time.perf_counter() - start_time > MAX_TIME:
             return SolveResult("IDA*", False, expanded=expanded, message="Timeout.")
+            
         min_cutoff = INFINITY
-        stack: List[Tuple[State, int, Tuple[Position, Tuple[Position, ...]], Tuple[int, ...]]] = [(start_state, 0, start_exact, ())]
-        parent: Dict[Tuple[Position, Tuple[Position, ...]], Optional[Tuple[Tuple[Position, Tuple[Position, ...]], Tuple[int, ...]]]] = {}
-        visited_cost: Dict[int, int] = {}
+        stack: List[Tuple[State, int, Tuple[int, ...]]] = [(start_state, 0, ())]
+        iteration_visited: Dict[int, int] = {}
+        
         while stack:
-            curr_state, g, parent_exact, segment = stack.pop()
+            curr_state, g, path = stack.pop()
             curr_key = curr_state.zobrist_hash
-            curr_exact = (curr_state.player, curr_state.boxes)
-            if visited_cost.get(curr_key, INFINITY) <= g:
+            
+            if g > iteration_visited.get(curr_key, INFINITY):
                 continue
-            visited_cost[curr_key] = g
-            if curr_exact != start_exact:
-                parent[curr_exact] = (parent_exact, segment)
+            iteration_visited[curr_key] = g
+            
             if is_goal(curr_state, level.goals):
-                actions = reconstruct_path(parent, curr_exact)
+                actions = [_INT_TO_ACTION[act] for act in path]
                 return SolveResult("IDA*", True, actions, expanded)
+                
             expanded += 1
             if expanded & 1023 == 0:
                 if time.perf_counter() - start_time > MAX_TIME:
@@ -370,23 +388,36 @@ def _solve_idastar(level: Level, start_time: float, stop_event: Optional[threadi
                     return SolveResult("IDA*", False, expanded=expanded, message="Cancelled by user.")
                 if progress_state is not None:
                     progress_state[0] = expanded
-            neighbors_list: List[Tuple[int, Tuple[int, ...], State, int]] = []
+                    
+            neighbors_list: List[Tuple[int, int, Tuple[int, ...], State]] = []
+            
             for path_segment, neighbor_state in get_macro_neighbors(curr_state, level):
                 if has_deadlock(neighbor_state, level):
                     continue
+                    
                 new_g = g + len(path_segment)
+                neighbor_key = neighbor_state.zobrist_hash
+                
+                if new_g >= iteration_visited.get(neighbor_key, INFINITY):
+                    continue
+                    
                 h = heuristic(neighbor_state, level)
                 f = new_g + h
+                
                 if f > limit:
                     if f < min_cutoff:
                         min_cutoff = f
                 else:
-                    neighbors_list.append((f, path_segment, neighbor_state, new_g))
+                    neighbors_list.append((f, new_g, path_segment, neighbor_state))
+                    
             neighbors_list.sort(key=lambda x: x[0], reverse=True)
-            for f, path_segment, neighbor_state, new_g in neighbors_list:
-                stack.append((neighbor_state, new_g, curr_exact, path_segment))
+            
+            for f_val, new_g, path_segment, neighbor_state in neighbors_list:
+                stack.append((neighbor_state, new_g, path + path_segment))
+                
         if min_cutoff == INFINITY:
             return SolveResult("IDA*", False, expanded=expanded, message="No solution found.")
+            
         limit = min_cutoff
 
 def solve(algorithm: str, level: Level, stop_event: Optional[threading.Event] = None, progress_state: Optional[List[int]] = None) -> SolveResult:

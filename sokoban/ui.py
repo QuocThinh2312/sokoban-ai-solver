@@ -102,7 +102,7 @@ class GameUI:
         if bgm_path.exists():
             try:
                 pygame.mixer.music.load(str(bgm_path))
-                pygame.mixer.music.set_volume(0.1) 
+                pygame.mixer.music.set_volume(0.15) 
                 pygame.mixer.music.play(-1)
             except Exception:
                 pass
@@ -468,8 +468,16 @@ class GameUI:
             self.screen.blit(display_font.render(algo_name, True, text_col), (x + 12, y + offset_y))
             
             result = results_by_algo.get(algo_name)
-            steps_text = f"Steps:{result.steps}" if (result is not None and result.found) else ""
-            surf = self.font_tiny.render(steps_text, True, step_col)
+            if result is not None:
+                if result.found:
+                    status_str = f"Steps:{result.steps}"
+                else:
+                    status_str = "FAILED"
+            else:
+                status_str = ""
+            status_col = step_col
+            
+            surf = self.font_tiny.render(status_str, True, status_col)
             self.screen.blit(surf, (x + row_rect.width - surf.get_width() - 8, y + 17))
             y += 52
             

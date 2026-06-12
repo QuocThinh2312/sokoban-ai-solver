@@ -119,14 +119,15 @@ def _compute_heuristic_value(boxes: Tuple[Position, ...], goals: Tuple[Position,
 def heuristic(state: State, level: Level) -> int:
     precompute_distances(level)
     lvl_id = _get_level_id(level)
-    cache_key = (lvl_id, state.boxes)
+    sorted_boxes = tuple(sorted(state.boxes))
+    cache_key = (lvl_id, sorted_boxes)
     
     if cache_key in _heuristic_cache:
         base_h = _heuristic_cache[cache_key]
     else:
         if lvl_id not in _level_sorted_goals:
             _level_sorted_goals[lvl_id] = tuple(sorted(level.goals))
-        base_h = _compute_heuristic_value(state.boxes, _level_sorted_goals[lvl_id], lvl_id)
+        base_h = _compute_heuristic_value(sorted_boxes, _level_sorted_goals[lvl_id], lvl_id)
         _heuristic_cache[cache_key] = base_h
         
     if base_h >= 999999:
