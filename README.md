@@ -48,9 +48,8 @@ Danh sách các thuật toán tìm kiếm được cài đặt trong `sokoban/al
 3. **UCS**: Tối ưu theo chi phí.
 4. **Greedy Search**: Tốc độ cực nhanh, kết hợp đa tầng Tie-breaking và Jitter để tránh Local Optimum.
 5. **A\***: Kết hợp g(n) + h(n), cân bằng giữa tối ưu và hiệu suất.
-6. **IDA\***: Phiên bản A\* tiết kiệm bộ nhớ.
-7. **Weighted A\***: Nhân trọng số cho Heuristic để tăng tốc độ tìm kiếm tại các map cực lớn.
-8. **Adaptive Beam Search**: Beam Search mở rộng linh hoạt, tự động nhận diện bế tắc để điều hướng không gian tìm kiếm.
+6. **Weighted A\***: Nhân trọng số cho Heuristic để tăng tốc độ tìm kiếm tại các map cực lớn.
+7. **Adaptive Beam Search**: Beam Search mở rộng linh hoạt, tự động nhận diện bế tắc để điều hướng không gian tìm kiếm.
 
 ## Kỹ thuật tối ưu & cải tiến
 
@@ -70,7 +69,7 @@ sokoban-ai-solver/
 ├── maps/                   # Kho dữ liệu các file .txt chứa ma trận màn chơi
 ├── sokoban/
 │   ├── __init__.py
-│   ├── algorithms.py       # Cài đặt logic cốt lõi của 8 thuật toán tìm kiếm AI .
+│   ├── algorithms.py       # Cài đặt logic cốt lõi của 7 thuật toán tìm kiếm AI .
 │   ├── constants.py        # Định nghĩa các hằng số toàn cục: ký hiệu màu sắc, kích thước UI,...
 │   ├── game.py             # Xử lý logic game và quản lý phiên chơi.
 │   ├── level.py            # Đọc, phân tích và mã hóa map từ file .txt

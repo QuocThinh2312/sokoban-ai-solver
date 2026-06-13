@@ -1,6 +1,6 @@
 import math
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple, Any
 
 import pygame
 import numpy as np
@@ -25,6 +25,7 @@ class GameUI:
     def __init__(self) -> None:
         pygame.mixer.pre_init(44100, -16, 2, 512)
         pygame.init()
+        pygame.key.set_repeat(200, 80)
         pygame.display.set_caption("Sokoban AI")
 
         self.screen: pygame.Surface = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
@@ -73,6 +74,12 @@ class GameUI:
         self.win_sound_played: bool = False
         self._load_sounds()
 
+        self.active_clicks: Dict[str, int] = {}
+
+    def register_click(self, button_key: str) -> None:
+        if button_key:
+            self.active_clicks[button_key] = pygame.time.get_ticks() + 150
+
     def _load_sounds(self) -> None:
         audio_dir = ASSETS_DIR / "audio"
         
@@ -88,10 +95,10 @@ class GameUI:
             if path.exists():
                 try:
                     snd = pygame.mixer.Sound(str(path))
-                    if key == "move": snd.set_volume(0.1)
+                    if key == "move": snd.set_volume(0.2)
                     elif key == "click": snd.set_volume(0.2)
-                    elif key == "select": snd.set_volume(0.05)
-                    elif key == "win": snd.set_volume(0.05)
+                    elif key == "select": snd.set_volume(0.1)
+                    elif key == "win": snd.set_volume(0.1)
                     self.sounds[key] = snd
                 except Exception:
                     self.sounds[key] = None
@@ -102,7 +109,7 @@ class GameUI:
         if bgm_path.exists():
             try:
                 pygame.mixer.music.load(str(bgm_path))
-                pygame.mixer.music.set_volume(0.15) 
+                pygame.mixer.music.set_volume(0.3) 
                 pygame.mixer.music.play(-1)
             except Exception:
                 pass
@@ -472,10 +479,12 @@ class GameUI:
                 if result.found:
                     status_str = f"Steps:{result.steps}"
                 else:
-                    status_str = "FAILED"
+                    is_canceled = result.message and "cancel" in result.message.lower()
+                    status_str = "CANCELED" if is_canceled else "FAILED"
             else:
                 status_str = ""
             status_col = step_col
+            
             
             surf = self.font_tiny.render(status_str, True, status_col)
             self.screen.blit(surf, (x + row_rect.width - surf.get_width() - 8, y + 17))
@@ -512,7 +521,7 @@ class GameUI:
         else:
             btn_rect = pygame.Rect(x, btn_y, SIDEBAR_WIDTH - 40, 48)
             self.button_rects["run_ai"] = btn_rect
-            self._draw_button(btn_rect, "RUN AI", COLOR_PRIMARY)
+            self._draw_button(btn_rect, "RUN AI", COLOR_PRIMARY, button_key="run_ai")
 
     def _draw_board(self, game_session: GameSession, is_ai_playing: bool, dt: int) -> None:
         level, state = game_session.level, game_session.state
@@ -604,17 +613,18 @@ class GameUI:
         y += 30
         
         if result is None:
-            if is_solving:
-                self.screen.blit(self.font_small.render("COMPUTING...", True, COLOR_SECONDARY), (x, y))
-            else:
-                self.screen.blit(self.font_small.render("AWAITING...", True, COLOR_TEXT_DIM), (x, y))
+            self.screen.blit(self.font_small.render("AWAITING...", True, COLOR_TEXT_DIM), (x, y))
         else:
             time_str = f"{result.elapsed_ms:.1f} ms" if result.elapsed_ms < 1000 else f"{result.elapsed_ms/1000:.2f} s"
             display_algo = result.algorithm.split('(')[0].replace('_', ' ').strip()
+            
+            is_canceled = result.message and "cancel" in result.message.lower()
+            solved_text = "YES" if result.found else ("CANCELED" if is_canceled else "NO")
+            
             rows = [
-                ("ALGORITHM:", display_algo),
-                ("SOLVED:", "YES" if result.found else "NO"),
-                ("PATH:", str(result.steps)),
+                ("ALGO:", display_algo),
+                ("SOLVED:", solved_text),
+                ("PATH:", str(result.steps) if result.found else "-"),
                 ("NODES:", f"{result.expanded:,}"),
                 ("TIME:", time_str),
             ]
@@ -631,24 +641,23 @@ class GameUI:
         
         quit_y = self.window_height - 70
         map_y = quit_y - 56
-        undo_y = map_y - 56
-        restart_y = undo_y - 56
+        undo_btn_y = map_y - 56       
+        pause_y = undo_btn_y - 56      
+        restart_y = pause_y - 56       
         
         ctrl_y = restart_y - 40
         self.screen.blit(self.font_bold.render("CONTROLS", True, COLOR_PRIMARY), (btn_x, ctrl_y))
         pygame.draw.line(self.screen, COLOR_BORDER, (btn_x, ctrl_y + 20), (x0 + DASHBOARD_WIDTH - 20, ctrl_y + 20), 2)
         
-        dim_color = (60, 60, 70)  
-        pause_color = dim_color if self.is_paused else COLOR_BORDER
-        continue_color = COLOR_TERTIARY if self.is_paused else dim_color
-
         pause_disabled = not is_ai_playing or self.is_paused
         continue_disabled = not is_ai_playing or not self.is_paused
-        
+        undo_disabled = is_solving or not game_session.history
+
         buttons: List[Tuple[str, str, Tuple[int, int, int], int, int, int, bool]] = [
             ("restart", "RESTART", COLOR_BORDER, btn_x, restart_y, btn_w, False),
-            ("pause", "PAUSE", COLOR_BORDER, btn_x, undo_y, half_btn_w, pause_disabled),
-            ("continue", "CONTINUE", COLOR_TERTIARY, btn_x + half_btn_w + 10, undo_y, half_btn_w, continue_disabled),
+            ("pause", "PAUSE", COLOR_BORDER, btn_x, pause_y, half_btn_w, pause_disabled),
+            ("continue", "CONTINUE", COLOR_TERTIARY, btn_x + half_btn_w + 10, pause_y, half_btn_w, continue_disabled),
+            ("undo", "UNDO", COLOR_BORDER, btn_x, undo_btn_y, btn_w, undo_disabled), 
             ("select_map", "MAPS", COLOR_BORDER, btn_x, map_y, half_btn_w, False),
             ("random_map", "RANDOM", COLOR_TERTIARY, btn_x + half_btn_w + 10, map_y, half_btn_w, False),
             ("quit_game", "QUIT", COLOR_HIGHLIGHT, btn_x, quit_y, btn_w, False)
@@ -660,7 +669,7 @@ class GameUI:
             if not is_disabled:
                 self.button_rects[key] = btn_rect
                 
-            self._draw_button(btn_rect, label, color, is_disabled=is_disabled)
+            self._draw_button(btn_rect, label, color, is_disabled=is_disabled, button_key=key)
 
     def _draw_map_popup(self, level_names: List[str], current_index: int) -> None:
         overlay = pygame.Surface((self.window_width, self.window_height), pygame.SRCALPHA)
@@ -751,8 +760,8 @@ class GameUI:
         self.button_rects["cancel_map"] = cancel_rect
         self.button_rects["confirm_map"] = confirm_rect
         
-        self._draw_button(cancel_rect, "CANCEL", COLOR_BORDER)
-        self._draw_button(confirm_rect, "CONFIRM", COLOR_SECONDARY)
+        self._draw_button(cancel_rect, "CANCEL", COLOR_BORDER, button_key="cancel_map")
+        self._draw_button(confirm_rect, "CONFIRM", COLOR_SECONDARY, button_key="confirm_map")
 
     def _draw_metric(self, x: int, y: int, label: str, value: str, color: Tuple[int, int, int], draw_line: bool = True) -> int:
         self.screen.blit(self.font_tiny.render(label, True, COLOR_TEXT_DIM), (x, y))
@@ -766,30 +775,40 @@ class GameUI:
         
         return y + 44
 
-    def _draw_button(self, rect: pygame.Rect, label: str, base_color: Tuple[int, int, int], is_pulse: bool = False, is_disabled: bool = False) -> None:
-        is_hovered = rect.collidepoint(pygame.mouse.get_pos()) if not is_disabled else False
+    def _draw_button(self, rect: pygame.Rect, label: str, color: Tuple[int, int, int], is_disabled: bool = False, button_key: str = "", is_pulse: bool = False) -> None:
+        current_time = pygame.time.get_ticks()
+        is_clicked = button_key and button_key in self.active_clicks and current_time < self.active_clicks[button_key]
+        
+        draw_rect = rect.copy()
+        
+        bg_col = color
+        
+        if is_clicked and not is_disabled:
+            draw_rect.y += 3
+            bg_col = (min(255, color[0] + 40), min(255, color[1] + 40), min(255, color[2] + 40))
+        elif is_pulse and not is_disabled:
+            import math
+            pulse_val = int((math.sin(current_time * 0.005) + 1) * 20) 
+            bg_col = (min(255, color[0] + pulse_val), min(255, color[1] + pulse_val), min(255, color[2] + pulse_val))
+        elif draw_rect.collidepoint(pygame.mouse.get_pos()) and not is_disabled:
+            bg_col = (min(255, color[0] + 20), min(255, color[1] + 20), min(255, color[2] + 20))
+            
+        if is_disabled:
+            bg_col = (50, 50, 60) 
+            
+        border_col = (200, 200, 210) if not is_disabled else (80, 80, 90)
+        brightness = bg_col[0] * 0.299 + bg_col[1] * 0.587 + bg_col[2] * 0.114
         
         if is_disabled:
-            bg_col = (40, 40, 45)
-            border_col = (60, 60, 70)
-            text_color = (100, 100, 110)
-            draw_rect = rect 
+            text_col = (100, 100, 110)
         else:
-            if is_pulse and (pygame.time.get_ticks() // 300) % 2 == 0:
-                bg_col = COLOR_SECONDARY  
-            else:
-                bg_col = self._lighten_color(base_color, 40) if is_hovered else base_color
-
-            draw_rect = rect.move(0, -2) if is_hovered else rect
-            border_col = COLOR_TEXT
-            text_color = COLOR_BG if sum(bg_col) > 400 else COLOR_TEXT
-
-        pygame.draw.rect(self.screen, (0, 0, 0), rect.move(2, 2))
-        pygame.draw.rect(self.screen, bg_col, draw_rect)
-        pygame.draw.rect(self.screen, border_col if not is_disabled else (70, 70, 80), draw_rect, 2)
+            text_col = (20, 20, 30) if brightness > 130 else (240, 240, 250)
+            
+        pygame.draw.rect(self.screen, bg_col, draw_rect, border_radius=6)
+        pygame.draw.rect(self.screen, border_col, draw_rect, 2, border_radius=6)
         
-        surf = self.font_bold.render(label, True, text_color)
-        self.screen.blit(surf, (draw_rect.centerx - surf.get_width() // 2, draw_rect.centery - surf.get_height() // 2))
+        text_surf = self.font_bold.render(label, True, text_col)
+        self.screen.blit(text_surf, text_surf.get_rect(center=draw_rect.center))
 
     def _draw_asset(self, key: str, rect: pygame.Rect, fallback_color: Tuple[int, int, int], is_circle: bool = False, scale_offset: int = 0) -> None:
         size = max(1, self.tile_size - scale_offset)

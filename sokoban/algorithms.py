@@ -350,76 +350,6 @@ def _solve_beam_search(level: Level, start_time: float, beam_width: int = 1500, 
         
     return SolveResult("Beam Search", False, expanded=expanded, message="Timeout.")
 
-def _solve_idastar(level: Level, start_time: float, stop_event: Optional[threading.Event] = None, progress_state: Optional[List[int]] = None) -> SolveResult:
-    from .solver_utils import _INT_TO_ACTION
-    start_state = level.initial_state()
-    
-    if is_goal(start_state, level.goals):
-        return SolveResult("IDA*", True, [])
-        
-    limit = heuristic(start_state, level)
-    expanded = 0
-    
-    while True:
-        if time.perf_counter() - start_time > MAX_TIME:
-            return SolveResult("IDA*", False, expanded=expanded, message="Timeout.")
-            
-        min_cutoff = INFINITY
-        stack: List[Tuple[State, int, Tuple[int, ...]]] = [(start_state, 0, ())]
-        iteration_visited: Dict[int, int] = {}
-        
-        while stack:
-            curr_state, g, path = stack.pop()
-            curr_key = curr_state.zobrist_hash
-            
-            if g > iteration_visited.get(curr_key, INFINITY):
-                continue
-            iteration_visited[curr_key] = g
-            
-            if is_goal(curr_state, level.goals):
-                actions = [_INT_TO_ACTION[act] for act in path]
-                return SolveResult("IDA*", True, actions, expanded)
-                
-            expanded += 1
-            if expanded & 1023 == 0:
-                if time.perf_counter() - start_time > MAX_TIME:
-                    return SolveResult("IDA*", False, expanded=expanded, message="Timeout.")
-                if stop_event and stop_event.is_set():
-                    return SolveResult("IDA*", False, expanded=expanded, message="Cancelled by user.")
-                if progress_state is not None:
-                    progress_state[0] = expanded
-                    
-            neighbors_list: List[Tuple[int, int, Tuple[int, ...], State]] = []
-            
-            for path_segment, neighbor_state in get_macro_neighbors(curr_state, level):
-                if has_deadlock(neighbor_state, level):
-                    continue
-                    
-                new_g = g + len(path_segment)
-                neighbor_key = neighbor_state.zobrist_hash
-                
-                if new_g >= iteration_visited.get(neighbor_key, INFINITY):
-                    continue
-                    
-                h = heuristic(neighbor_state, level)
-                f = new_g + h
-                
-                if f > limit:
-                    if f < min_cutoff:
-                        min_cutoff = f
-                else:
-                    neighbors_list.append((f, new_g, path_segment, neighbor_state))
-                    
-            neighbors_list.sort(key=lambda x: x[0], reverse=True)
-            
-            for f_val, new_g, path_segment, neighbor_state in neighbors_list:
-                stack.append((neighbor_state, new_g, path + path_segment))
-                
-        if min_cutoff == INFINITY:
-            return SolveResult("IDA*", False, expanded=expanded, message="No solution found.")
-            
-        limit = min_cutoff
-
 def solve(algorithm: str, level: Level, stop_event: Optional[threading.Event] = None, progress_state: Optional[List[int]] = None) -> SolveResult:
     start_time = time.perf_counter()
     try:
@@ -437,8 +367,6 @@ def solve(algorithm: str, level: Level, stop_event: Optional[threading.Event] = 
             result = _solve_weighted_astar(level, start_time, weight=1.0, stop_event=stop_event, progress_state=progress_state)
         elif algorithm == "Beam Search": 
             result = _solve_beam_search(level, start_time, beam_width=1000, stop_event=stop_event, progress_state=progress_state)
-        elif algorithm == "IDA*":
-            result = _solve_idastar(level, start_time, stop_event, progress_state)
         else:
             raise ValueError(f"Unsupported algorithm: {algorithm}")
     except Exception as e:
