@@ -16,12 +16,13 @@ python run.py
 
 ## Điều khiển & tương tác UI
 
-- **Nút RUN AI**: Khởi chạy thuật toán AI để giải màn chơi hiện tại.
-- **Nút RESTART**: Chơi lại từ đầu màn hiện tại.
-- **Nút MAPS**: Mở cửa sổ popup chọn level với thanh cuộn tương tác.
-- **Nút PAUSE / CONTINUE**: Tạm dừng hoặc tiếp tục quá trình di chuyển của bot AI.
+- **Nút RUN AI (Backspace)**: Khởi chạy thuật toán AI để giải màn chơi hiện tại.
+- **Nút RESTART (R)**: Chơi lại từ đầu màn hiện tại.
+- **Nút MAPS (M)**: Mở cửa sổ popup chọn level với thanh cuộn tương tác.
+- **Nút PAUSE/CONTINUE (P/C)**: Tạm dừng hoặc tiếp tục quá trình di chuyển của bot AI.
+- **Nút UNDO (U)**: Quay lại bước di chuyển trước đó của bot AI.
 - **Nút RANDOM**: Chọn ngẫu nhiên một màn chơi trong hệ thống.
-- **Esc**: Thoát game.
+- **Nút QUIT (Esc/Q)**: Thoát game.
 
 ## Ký hiệu trong tệp màn chơi
 
