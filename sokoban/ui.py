@@ -1,9 +1,10 @@
 import math
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple, Final, Union
 
 import pygame
 import numpy as np
+from numpy.typing import NDArray
 from scipy.optimize import linear_sum_assignment
 
 from .solver_utils import SolveResult
@@ -17,15 +18,29 @@ from .constants import (
 )
 from .game import GameSession
 
-ASSETS_DIR: Path = Path(__file__).resolve().parent.parent / "assets"
+_ASSETS_DIR: Final[Path] = Path(__file__).resolve().parent.parent / "assets"
+_IMG_DIR: Final[Path] = _ASSETS_DIR / "img"
+_AUDIO_DIR: Final[Path] = _ASSETS_DIR / "audio"
+_FONT_PATH: Final[Path] = _ASSETS_DIR / "PressStart2P.ttf"
 
-RETRO_FLOOR: Tuple[int, int, int] = (218, 212, 186)
+_RETRO_FLOOR: Final[Tuple[int, int, int]] = (218, 212, 186)
+_AUDIO_FREQ: Final[int] = 44100
+_AUDIO_SIZE: Final[int] = -16
+_AUDIO_CHANNELS: Final[int] = 2
+_AUDIO_BUFFER: Final[int] = 512
+_KEY_REPEAT_DELAY: Final[int] = 200
+_KEY_REPEAT_INTERVAL: Final[int] = 80
+_CLICK_DELAY_MS: Final[int] = 150
+_SOUND_MOVE_COOLDOWN_MS: Final[int] = 50
+_ANIM_SNAP_DIST: Final[float] = 1.5
+_ANIM_TOLERANCE: Final[float] = 0.05
+_FAST_SPEED_THRESHOLD: Final[int] = 15
 
 class GameUI:
     def __init__(self) -> None:
-        pygame.mixer.pre_init(44100, -16, 2, 512)
+        pygame.mixer.pre_init(_AUDIO_FREQ, _AUDIO_SIZE, _AUDIO_CHANNELS, _AUDIO_BUFFER)
         pygame.init()
-        pygame.key.set_repeat(200, 80)
+        pygame.key.set_repeat(_KEY_REPEAT_DELAY, _KEY_REPEAT_INTERVAL)
         pygame.display.set_caption("Sokoban AI")
 
         self.screen: pygame.Surface = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
@@ -50,7 +65,7 @@ class GameUI:
         self.font_metric: pygame.font.Font
         self._load_custom_fonts()
         
-        self._asset_cache: Dict[Tuple[Any, ...], pygame.Surface] = {}
+        self._asset_cache: Dict[Tuple[str, int], pygame.Surface] = {}
         self.assets: Dict[str, Optional[pygame.Surface]] = self._load_assets()
         
         self.show_map_list: bool = False
@@ -78,12 +93,10 @@ class GameUI:
 
     def register_click(self, button_key: str) -> None:
         if button_key:
-            self.active_clicks[button_key] = pygame.time.get_ticks() + 150
+            self.active_clicks[button_key] = pygame.time.get_ticks() + _CLICK_DELAY_MS
 
     def _load_sounds(self) -> None:
-        audio_dir = ASSETS_DIR / "audio"
-        
-        sound_files = {
+        sound_files: Dict[str, str] = {
             "click": "click.ogg",
             "move": "move.ogg",
             "select": "select.ogg",
@@ -91,57 +104,59 @@ class GameUI:
         }
         
         for key, filename in sound_files.items():
-            path = audio_dir / filename
+            path: Path = _AUDIO_DIR / filename
             if path.exists():
                 try:
-                    snd = pygame.mixer.Sound(str(path))
-                    if key == "move": snd.set_volume(0.2)
-                    elif key == "click": snd.set_volume(0.2)
-                    elif key == "select": snd.set_volume(0.1)
-                    elif key == "win": snd.set_volume(0.1)
+                    snd: pygame.mixer.Sound = pygame.mixer.Sound(str(path))
+                    if key == "move":
+                        snd.set_volume(0.2)
+                    elif key == "click":
+                        snd.set_volume(0.2)
+                    elif key == "select":
+                        snd.set_volume(0.1)
+                    elif key == "win":
+                        snd.set_volume(0.1)
                     self.sounds[key] = snd
-                except Exception:
+                except (pygame.error, FileNotFoundError):
                     self.sounds[key] = None
             else:
                 self.sounds[key] = None
                 
-        bgm_path = audio_dir / "bgm.ogg" 
+        bgm_path: Path = _AUDIO_DIR / "bgm.ogg" 
         if bgm_path.exists():
             try:
                 pygame.mixer.music.load(str(bgm_path))
                 pygame.mixer.music.set_volume(0.3) 
                 pygame.mixer.music.play(-1)
-            except Exception:
+            except (pygame.error, FileNotFoundError):
                 pass
 
     def play_sound(self, key: str) -> None:
-        sound = self.sounds.get(key)
-        
+        sound: Optional[pygame.mixer.Sound] = self.sounds.get(key)
         if sound is None:
             return
             
-        now = pygame.time.get_ticks()
-        if key == "move" and now - self.last_sound_ticks.get("move", 0) < 50:
+        now: int = pygame.time.get_ticks()
+        if key == "move" and now - self.last_sound_ticks.get("move", 0) < _SOUND_MOVE_COOLDOWN_MS:
             return
             
         self.last_sound_ticks[key] = now
-        
         sound.play()
 
     def _load_custom_fonts(self) -> None:
-        font_path = ASSETS_DIR / "PressStart2P.ttf"
         try:
-            if font_path.exists():
-                self.font = pygame.font.Font(str(font_path), 14)
-                self.font_small = pygame.font.Font(str(font_path), 12)
-                self.font_tiny = pygame.font.Font(str(font_path), 10)
-                self.font_bold = pygame.font.Font(str(font_path), 14)
-                self.font_large = pygame.font.Font(str(font_path), 20)
-                self.font_metric = pygame.font.Font(str(font_path), 16)
+            if _FONT_PATH.exists():
+                font_path_str: str = str(_FONT_PATH)
+                self.font = pygame.font.Font(font_path_str, 14)
+                self.font_small = pygame.font.Font(font_path_str, 12)
+                self.font_tiny = pygame.font.Font(font_path_str, 10)
+                self.font_bold = pygame.font.Font(font_path_str, 14)
+                self.font_large = pygame.font.Font(font_path_str, 20)
+                self.font_metric = pygame.font.Font(font_path_str, 16)
             else:
                 raise FileNotFoundError
-        except Exception:
-            sys_font = "courier"
+        except (pygame.error, FileNotFoundError, RuntimeError):
+            sys_font: str = "courier"
             self.font = pygame.font.SysFont(sys_font, 18, bold=True)
             self.font_small = pygame.font.SysFont(sys_font, 16, bold=True)
             self.font_tiny = pygame.font.SysFont(sys_font, 14)
@@ -151,9 +166,6 @@ class GameUI:
 
     def _load_assets(self) -> Dict[str, Optional[pygame.Surface]]:
         result: Dict[str, Optional[pygame.Surface]] = {}
-        
-        img_dir = ASSETS_DIR / "img"
-        
         asset_files: Dict[str, str] = {
             "wall": "wall.png", 
             "box": "box.jpg", 
@@ -164,17 +176,14 @@ class GameUI:
         
         for key, filename in asset_files.items():
             try:
-                asset_path = str(img_dir / filename)
-                
+                asset_path: str = str(_IMG_DIR / filename)
                 if filename.endswith(".jpg"):
-                    img = pygame.image.load(asset_path).convert()
+                    img: pygame.Surface = pygame.image.load(asset_path).convert()
                 else:
                     img = pygame.image.load(asset_path).convert_alpha()
-                    
                     if key == "goal":
-                        bounding_rect = img.get_bounding_rect()
+                        bounding_rect: pygame.Rect = img.get_bounding_rect()
                         img = img.subsurface(bounding_rect).copy()
-                        
                 result[key] = img
             except (pygame.error, FileNotFoundError):
                 result[key] = None
@@ -189,46 +198,47 @@ class GameUI:
         )
 
     def _calculate_dynamic_viewport(self, map_width: int, map_height: int) -> None:
-        center_w = self.window_width - SIDEBAR_WIDTH - DASHBOARD_WIDTH - 40
-        center_h = self.window_height - HEADER_HEIGHT - 60
+        center_w: int = self.window_width - SIDEBAR_WIDTH - DASHBOARD_WIDTH - 40
+        center_h: int = self.window_height - HEADER_HEIGHT - 60
         
-        max_tile_w = center_w // max(1, map_width)
-        max_tile_h = center_h // max(1, map_height)
+        max_tile_w: int = center_w // max(1, map_width)
+        max_tile_h: int = center_h // max(1, map_height)
         
         self.tile_size = min(max_tile_w, max_tile_h, 64)
         
-        board_pixel_w = self.tile_size * map_width
-        board_pixel_h = self.tile_size * map_height
+        board_pixel_w: int = self.tile_size * map_width
+        board_pixel_h: int = self.tile_size * map_height
         
         self.board_ox = SIDEBAR_WIDTH + 20 + (center_w - board_pixel_w) // 2
         self.board_oy = HEADER_HEIGHT + 20 + (center_h - board_pixel_h) // 2
 
     def _get_scaled_asset(self, key: str, custom_size: Optional[int] = None) -> Optional[pygame.Surface]:
-        size = custom_size if custom_size is not None else self.tile_size
+        size: int = custom_size if custom_size is not None else self.tile_size
         size = max(1, int(size))
         
-        image = self.assets.get(key)
+        image: Optional[pygame.Surface] = self.assets.get(key)
         if image is None: 
             return None
             
-        cache_key = (key, size)
+        cache_key: Tuple[str, int] = (key, size)
         if cache_key not in self._asset_cache:
             self._asset_cache[cache_key] = pygame.transform.scale(image, (size, size))
             
         return self._asset_cache[cache_key]
 
     def _get_player_sprite(self) -> Optional[pygame.Surface]:
-        image = self.assets.get("player")
+        image: Optional[pygame.Surface] = self.assets.get("player")
         if image is None: 
             return None
-        cache_key = ("player_static", self.tile_size)
+            
+        cache_key: Tuple[str, int] = ("player_static", self.tile_size)
         if cache_key not in self._asset_cache:
             self._asset_cache[cache_key] = pygame.transform.scale(image, (self.tile_size, self.tile_size))
         return self._asset_cache[cache_key]
 
     def _process_slider(self) -> None:
-        mouse_pos = pygame.mouse.get_pos()
-        mouse_pressed = pygame.mouse.get_pressed()[0]
+        mouse_pos: Tuple[int, int] = pygame.mouse.get_pos()
+        mouse_pressed: bool = pygame.mouse.get_pressed()[0]
 
         if mouse_pressed:
             if self.slider_rect.collidepoint(mouse_pos):
@@ -237,8 +247,8 @@ class GameUI:
             self.is_dragging_slider = False
 
         if self.is_dragging_slider:
-            rel_x = min(max(mouse_pos[0] - self.slider_rect.x, 0), self.slider_rect.width)
-            ratio = rel_x / self.slider_rect.width
+            rel_x: int = min(max(mouse_pos[0] - self.slider_rect.x, 0), self.slider_rect.width)
+            ratio: float = rel_x / self.slider_rect.width
             self.speed_ms = MAX_SPEED_MS - int(ratio * (MAX_SPEED_MS - MIN_SPEED_MS))
 
     def _process_map_scrollbar(self) -> None:
@@ -246,40 +256,42 @@ class GameUI:
             self.is_dragging_map_scroll = False
             return
 
-        mouse_pos = pygame.mouse.get_pos()
-        mouse_pressed = pygame.mouse.get_pressed()[0]
+        mouse_pos: Tuple[int, int] = pygame.mouse.get_pos()
+        mouse_pressed: bool = pygame.mouse.get_pressed()[0]
 
         if mouse_pressed:
-            hit_rect = self.scrollbar_track_rect.inflate(40, 0)
+            hit_rect: pygame.Rect = self.scrollbar_track_rect.inflate(40, 0)
             if hit_rect.collidepoint(mouse_pos) or self.is_dragging_map_scroll:
                 self.is_dragging_map_scroll = True
         else:
             self.is_dragging_map_scroll = False
 
         if self.is_dragging_map_scroll:
-            track_y = self.scrollbar_track_rect.y
-            track_h = self.scrollbar_track_rect.height
-            
-            rel_y = min(max(mouse_pos[1] - track_y, 0), track_h)
-            
-            ratio = rel_y / track_h
+            track_y: int = self.scrollbar_track_rect.y
+            track_h: int = self.scrollbar_track_rect.height
+            rel_y: int = min(max(mouse_pos[1] - track_y, 0), track_h)
+            ratio: float = rel_y / track_h
             self.map_scroll_y = int(ratio * self.max_scroll_y)
 
     def _update_animations(self, target_player: Tuple[int, int], target_boxes: Tuple[Tuple[int, int], ...], dt: int) -> None:
-        if self.speed_ms < 15:
+        if self.speed_ms < _FAST_SPEED_THRESHOLD:
             self.anim_player_pos = (float(target_player[0]), float(target_player[1]))
             self.anim_boxes = [(float(b[0]), float(b[1])) for b in target_boxes]
             return
 
-        step = dt / float(max(1, self.speed_ms))
+        step: float = dt / float(max(1, self.speed_ms))
+        c_r: float
+        c_c: float
+        if self.anim_player_pos is not None:
+            c_r, c_c = self.anim_player_pos
+        else:
+            c_r, c_c = float(target_player[0]), float(target_player[1])
 
-        c_r, c_c = self.anim_player_pos if self.anim_player_pos else (float(target_player[0]), float(target_player[1]))
-        t_r, t_c = float(target_player[0]), float(target_player[1])
+        t_r: float = float(target_player[0])
+        t_c: float = float(target_player[1])
 
-        dist = math.hypot(t_r - c_r, t_c - c_c)
-        if dist > 1.5: 
-            self.anim_player_pos = (t_r, t_c) 
-        elif dist <= step:
+        dist: float = math.hypot(t_r - c_r, t_c - c_c)
+        if dist > _ANIM_SNAP_DIST or dist <= step: 
             self.anim_player_pos = (t_r, t_c) 
         else:
             self.anim_player_pos = (c_r + (t_r - c_r) / dist * step, c_c + (t_c - c_c) / dist * step)
@@ -287,28 +299,30 @@ class GameUI:
         if len(self.anim_boxes) != len(target_boxes):
             self.anim_boxes = [(float(b[0]), float(b[1])) for b in target_boxes]
         else:
-            n_boxes = len(target_boxes)
-            cost_matrix = np.zeros((n_boxes, n_boxes), dtype=float)
+            n_boxes: int = len(target_boxes)
+            cost_matrix: NDArray[np.float64] = np.zeros((n_boxes, n_boxes), dtype=float)
             
             for i, vb in enumerate(self.anim_boxes):
                 for j, tb in enumerate(target_boxes):
                     cost_matrix[i, j] = math.hypot(vb[0] - float(tb[0]), vb[1] - float(tb[1]))
             
+            row_ind: NDArray[np.int_]
+            col_ind: NDArray[np.int_]
             row_ind, col_ind = linear_sum_assignment(cost_matrix)
             new_anim_boxes: List[Tuple[float, float]] = [(0.0, 0.0)] * n_boxes
             
             for idx in range(n_boxes):
-                v_idx = row_ind[idx]
-                t_idx = col_ind[idx]
+                v_idx: int = int(row_ind[idx])
+                t_idx: int = int(col_ind[idx])
                 
-                vb_r, vb_c = self.anim_boxes[v_idx]
-                tb_r, tb_c = float(target_boxes[t_idx][0]), float(target_boxes[t_idx][1])
-                b_dist = cost_matrix[v_idx, t_idx]
+                vb_r: float = self.anim_boxes[v_idx][0]
+                vb_c: float = self.anim_boxes[v_idx][1]
+                tb_r: float = float(target_boxes[t_idx][0])
+                tb_c: float = float(target_boxes[t_idx][1])
+                b_dist: float = float(cost_matrix[v_idx, t_idx])
                 
-                if b_dist > 1.5:
-                    new_pos = (tb_r, tb_c)
-                elif b_dist <= step:
-                    new_pos = (tb_r, tb_c)
+                if b_dist > _ANIM_SNAP_DIST or b_dist <= step:
+                    new_pos: Tuple[float, float] = (tb_r, tb_c)
                 else:
                     new_pos = (
                         vb_r + (tb_r - vb_r) / b_dist * step,
@@ -321,16 +335,16 @@ class GameUI:
 
     def _is_animating(self, target_player: Tuple[int, int], target_boxes: Tuple[Tuple[int, int], ...]) -> bool:
         if self.anim_player_pos:
-            if abs(self.anim_player_pos[0] - target_player[0]) > 0.05 or abs(self.anim_player_pos[1] - target_player[1]) > 0.05:
+            if abs(self.anim_player_pos[0] - target_player[0]) > _ANIM_TOLERANCE or abs(self.anim_player_pos[1] - target_player[1]) > _ANIM_TOLERANCE:
                 return True
         for i, vb in enumerate(self.anim_boxes):
             if i < len(target_boxes):
-                tb = target_boxes[i]
-                if abs(vb[0] - tb[0]) > 0.05 or abs(vb[1] - tb[1]) > 0.05:
+                tb: Tuple[int, int] = target_boxes[i]
+                if abs(vb[0] - tb[0]) > _ANIM_TOLERANCE or abs(vb[1] - tb[1]) > _ANIM_TOLERANCE:
                     return True
         return False
 
-    def handle_click(self, pos: Tuple[int, int]) -> Optional[Tuple[str, Any]]:
+    def handle_click(self, pos: Tuple[int, int]) -> Optional[Tuple[str, Union[int, str, None]]]:
         if self.show_map_list:
             for key in ["cancel_map", "confirm_map"]:
                 if key in self.button_rects and self.button_rects[key].collidepoint(pos):
@@ -346,24 +360,34 @@ class GameUI:
                 
             return None 
 
-        for key, rect in self.algo_rects.items():
-            if rect.collidepoint(pos): 
-                return ("select_algo", key)
+        for algo_key, algo_rect in self.algo_rects.items():
+            if algo_rect.collidepoint(pos): 
+                return ("select_algo", algo_key)
                 
-        for key, rect in self.button_rects.items():
-            if rect.collidepoint(pos):
-                if key == "quit_game":
+        for btn_key, btn_rect in self.button_rects.items():
+            if btn_rect.collidepoint(pos):
+                if btn_key == "quit_game":
                     pygame.event.post(pygame.event.Event(pygame.QUIT))
-                return (key, None)
+                return (btn_key, None)
                 
         return None
 
-    def draw(self, game_session: GameSession, current_algo: str, current_result: Optional[SolveResult], 
-           level_index: int, total_levels: int, level_names: List[str], status_text: str, 
-           is_solving: bool, is_ai_playing: bool = False,
-           results_by_algo: Optional[Dict[str, SolveResult]] = None, dt: int = 16,
-           compute_time: float = 0.0, compute_nodes: int = 0) -> None:
-           
+    def draw(
+        self, 
+        game_session: GameSession, 
+        current_algo: str, 
+        current_result: Optional[SolveResult], 
+        level_index: int, 
+        total_levels: int, 
+        level_names: List[str], 
+        status_text: str, 
+        is_solving: bool, 
+        is_ai_playing: bool = False,
+        results_by_algo: Optional[Dict[str, SolveResult]] = None, 
+        dt: int = 16,
+        compute_time: float = 0.0, 
+        compute_nodes: int = 0
+    ) -> None:
         if results_by_algo is None: 
             results_by_algo = {}
         
@@ -392,17 +416,16 @@ class GameUI:
         elif not game_session.has_won():
             self.win_sound_played = False
             
-        all_interactive_rects = list(self.algo_rects.values()) + list(self.button_rects.values()) + [self.slider_rect]
+        all_interactive_rects: List[pygame.Rect] = list(self.algo_rects.values()) + list(self.button_rects.values()) + [self.slider_rect]
         
         if self.show_map_list:
             all_interactive_rects.extend(list(self.map_rects.values()))
-            
-            scroll_rect = self.scrollbar_track_rect
+            scroll_rect: Optional[pygame.Rect] = self.scrollbar_track_rect
             if scroll_rect is not None:
                 all_interactive_rects.append(scroll_rect.inflate(20, 0))
 
-        is_hovering_clickable = any(r.collidepoint(pygame.mouse.get_pos()) for r in all_interactive_rects)
-        is_dragging_any = getattr(self, 'is_dragging_map_scroll', False) or self.is_dragging_slider
+        is_hovering_clickable: bool = any(r.collidepoint(pygame.mouse.get_pos()) for r in all_interactive_rects)
+        is_dragging_any: bool = self.is_dragging_map_scroll or self.is_dragging_slider
         
         if is_hovering_clickable or is_dragging_any:
             pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
@@ -412,15 +435,14 @@ class GameUI:
         pygame.display.flip()
 
     def _draw_subtle_win_notification(self) -> None:
-        text_surf = self.font_large.render("PUZZLE SOLVED!", True, COLOR_TERTIARY)
-        center_x = SIDEBAR_WIDTH + (self.window_width - SIDEBAR_WIDTH - DASHBOARD_WIDTH) // 2
+        text_surf: pygame.Surface = self.font_large.render("PUZZLE SOLVED!", True, COLOR_TERTIARY)
+        center_x: int = SIDEBAR_WIDTH + (self.window_width - SIDEBAR_WIDTH - DASHBOARD_WIDTH) // 2
+        center_y: int = HEADER_HEIGHT + (self.board_oy - HEADER_HEIGHT) // 2
         
-        center_y = HEADER_HEIGHT + (self.board_oy - HEADER_HEIGHT) // 2
-        
-        bg_rect = text_surf.get_rect(center=(center_x, center_y))
+        bg_rect: pygame.Rect = text_surf.get_rect(center=(center_x, center_y))
         bg_rect.inflate_ip(40, 20)
         
-        s = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
+        s: pygame.Surface = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
         s.fill((35, 35, 45, 230))
         
         self.screen.blit(s, bg_rect.topleft)
@@ -433,35 +455,43 @@ class GameUI:
         pygame.draw.rect(self.screen, COLOR_BORDER, rect, 3)
 
     def _draw_header(self) -> None:
-        rect = pygame.Rect(0, 0, self.window_width, HEADER_HEIGHT)
+        rect: pygame.Rect = pygame.Rect(0, 0, self.window_width, HEADER_HEIGHT)
         pygame.draw.rect(self.screen, COLOR_PANEL, rect)
         pygame.draw.rect(self.screen, COLOR_BORDER, rect, 3)
         
         self.screen.blit(self.font_large.render("SOKOBAN", True, COLOR_PRIMARY), (20, 18))
         self.screen.blit(self.font_bold.render("AI SOLVER", True, COLOR_TEXT), (160, 22))
 
-    def _draw_sidebar(self, current_algo: str, results_by_algo: Dict[str, SolveResult], is_solving: bool, is_ai_playing: bool, compute_time: float, compute_nodes: int) -> None:
-        rect = pygame.Rect(0, HEADER_HEIGHT - 3, SIDEBAR_WIDTH, self.window_height - HEADER_HEIGHT + 3)
+    def _draw_sidebar(
+        self, 
+        current_algo: str, 
+        results_by_algo: Dict[str, SolveResult], 
+        is_solving: bool, 
+        is_ai_playing: bool, 
+        compute_time: float, 
+        compute_nodes: int
+    ) -> None:
+        rect: pygame.Rect = pygame.Rect(0, HEADER_HEIGHT - 3, SIDEBAR_WIDTH, self.window_height - HEADER_HEIGHT + 3)
         self._draw_panel(rect)
-        x, y = 20, HEADER_HEIGHT + 20
+        x: int = 20
+        y: int = HEADER_HEIGHT + 20
         self.screen.blit(self.font_bold.render("ALGORITHMS", True, COLOR_PRIMARY), (x, y))
         y += 40
         
-        lock_algos = is_solving or is_ai_playing
+        lock_algos: bool = is_solving or is_ai_playing
         
         for algo_name in ALGORITHMS:
-            is_active = (algo_name == current_algo)
-            row_rect = pygame.Rect(x, y, SIDEBAR_WIDTH - 40, 44) 
+            is_active: bool = (algo_name == current_algo)
+            row_rect: pygame.Rect = pygame.Rect(x, y, SIDEBAR_WIDTH - 40, 44) 
             
             if lock_algos:
-                is_hovered = False
-                bg_col = (50, 50, 60) if is_active else (30, 30, 35)
-                border_col = (80, 80, 90) if is_active else (40, 40, 45)
-                text_col = (150, 150, 160) if is_active else (90, 90, 100)
-                step_col = (100, 100, 110)
+                bg_col: Tuple[int, int, int] = (50, 50, 60) if is_active else (30, 30, 35)
+                border_col: Tuple[int, int, int] = (80, 80, 90) if is_active else (40, 40, 45)
+                text_col: Tuple[int, int, int] = (150, 150, 160) if is_active else (90, 90, 100)
+                step_col: Tuple[int, int, int] = (100, 100, 110)
             else:
                 self.algo_rects[algo_name] = row_rect
-                is_hovered = row_rect.collidepoint(pygame.mouse.get_pos())
+                is_hovered: bool = row_rect.collidepoint(pygame.mouse.get_pos())
                 bg_col = COLOR_PRIMARY_DIM if is_active else (35, 35, 45) if is_hovered else COLOR_BG
                 border_col = COLOR_PRIMARY if is_active else COLOR_BORDER
                 text_col = COLOR_BG if is_active else COLOR_TEXT
@@ -470,23 +500,21 @@ class GameUI:
             pygame.draw.rect(self.screen, bg_col, row_rect)
             pygame.draw.rect(self.screen, border_col, row_rect, 2)
             
-            display_font = self.font_small if len(algo_name) >= 9 else self.font_bold
-            offset_y = 15 if len(algo_name) >= 9 else 13
+            display_font: pygame.font.Font = self.font_small if len(algo_name) >= 9 else self.font_bold
+            offset_y: int = 15 if len(algo_name) >= 9 else 13
             self.screen.blit(display_font.render(algo_name, True, text_col), (x + 12, y + offset_y))
             
-            result = results_by_algo.get(algo_name)
+            result: Optional[SolveResult] = results_by_algo.get(algo_name)
             if result is not None:
                 if result.found:
-                    status_str = f"Steps:{result.steps}"
+                    status_str: str = f"Steps:{result.steps}"
                 else:
-                    is_canceled = result.message and "cancel" in result.message.lower()
+                    is_canceled: bool = result.message is not None and "cancel" in result.message.lower()
                     status_str = "CANCELED" if is_canceled else "FAILED"
             else:
                 status_str = ""
-            status_col = step_col
-            
-            
-            surf = self.font_tiny.render(status_str, True, status_col)
+                
+            surf: pygame.Surface = self.font_tiny.render(status_str, True, step_col)
             self.screen.blit(surf, (x + row_rect.width - surf.get_width() - 8, y + 17))
             y += 52
             
@@ -499,20 +527,20 @@ class GameUI:
         pygame.draw.rect(self.screen, COLOR_BG, self.slider_rect)
         pygame.draw.rect(self.screen, COLOR_BORDER, self.slider_rect, 2)
         
-        ratio = (MAX_SPEED_MS - self.speed_ms) / (MAX_SPEED_MS - MIN_SPEED_MS)
-        fill_w = int(ratio * self.slider_rect.width)
+        ratio: float = (MAX_SPEED_MS - self.speed_ms) / (MAX_SPEED_MS - MIN_SPEED_MS)
+        fill_w: int = int(ratio * self.slider_rect.width)
         pygame.draw.rect(self.screen, COLOR_SECONDARY, (self.slider_rect.x, self.slider_rect.y, fill_w, self.slider_rect.height))
         pygame.draw.rect(self.screen, COLOR_TEXT, (self.slider_rect.x + fill_w - 5, self.slider_rect.y - 4, 10, 22))
 
-        btn_y = self.window_height - 68 
+        btn_y: int = self.window_height - 68 
+        btn_rect: pygame.Rect
         
         if is_solving:
-            info_y = btn_y - 45
+            info_y: int = btn_y - 45
             self.screen.blit(self.font_small.render("COMPUTING...", True, COLOR_SECONDARY), (x, info_y))
-            time_str = f"{min(60.0, compute_time):.1f}s"
+            time_str: str = f"{min(60.0, compute_time):.1f}s"
             self.screen.blit(self.font_small.render(time_str, True, COLOR_HIGHLIGHT), (x + 150, info_y))
-            
-            node_str = f"Nodes: {compute_nodes:,}"
+            node_str: str = f"Nodes: {compute_nodes:,}"
             self.screen.blit(self.font_tiny.render(node_str, True, COLOR_TEXT_DIM), (x, info_y + 20))
             
             btn_rect = pygame.Rect(x, btn_y, SIDEBAR_WIDTH - 40, 48)
@@ -524,85 +552,102 @@ class GameUI:
             self._draw_button(btn_rect, "RUN AI", COLOR_PRIMARY, button_key="run_ai")
 
     def _draw_board(self, game_session: GameSession, is_ai_playing: bool, dt: int) -> None:
-        level, state = game_session.level, game_session.state
+        level = game_session.level
+        state = game_session.state
         self._update_animations(state.player, state.boxes, dt)
         
-        board_rect = pygame.Rect(
+        board_rect: pygame.Rect = pygame.Rect(
             self.board_ox, 
             self.board_oy, 
             level.width * self.tile_size, 
             level.height * self.tile_size
         )
-        pygame.draw.rect(self.screen, RETRO_FLOOR, board_rect)
+        pygame.draw.rect(self.screen, _RETRO_FLOOR, board_rect)
         
         for r in range(level.height):
             for c in range(level.width):
-                rect = pygame.Rect(self.board_ox + c * self.tile_size, self.board_oy + r * self.tile_size, self.tile_size, self.tile_size)
+                rect: pygame.Rect = pygame.Rect(
+                    self.board_ox + c * self.tile_size, 
+                    self.board_oy + r * self.tile_size, 
+                    self.tile_size, 
+                    self.tile_size
+                )
                 
                 if (r, c) in level.walls:
                     self._draw_asset("wall", rect, COLOR_BORDER)
                 elif (r, c) in level.goals:
-                    gap_offset = max(2, int(self.tile_size * 0.15))
-                    self._draw_asset("goal", rect, COLOR_GOAL_FALLBACK, True, scale_offset=gap_offset)
+                    gap_offset: int = max(2, int(self.tile_size * 0.15))
+                    self._draw_asset("goal", rect, COLOR_GOAL_FALLBACK, is_circle=True, scale_offset=gap_offset)
                     
-        for i, visual_box in enumerate(self.anim_boxes):
-            vr, vc = visual_box[0], visual_box[1]
+        for visual_box in self.anim_boxes:
+            vr: float = visual_box[0]
+            vc: float = visual_box[1]
             
-            is_on_goal = False
+            is_on_goal: bool = False
             for gr, gc in level.goals:
-                if abs(vr - gr) < 0.1 and abs(vc - gc) < 0.1:
+                if abs(vr - gr) < _ANIM_TOLERANCE and abs(vc - gc) < _ANIM_TOLERANCE:
                     is_on_goal = True
                     break
                     
-            rect = pygame.Rect(
+            box_rect: pygame.Rect = pygame.Rect(
                 int(self.board_ox + vc * self.tile_size), 
                 int(self.board_oy + vr * self.tile_size), 
                 self.tile_size, 
                 self.tile_size
             )
             
-            asset_key = "box_on_goal" if is_on_goal else "box"
-            fallback_col = COLOR_BOX_ON_GOAL_FALLBACK if is_on_goal else COLOR_BOX_FALLBACK
-            self._draw_asset(asset_key, rect, fallback_col)
+            asset_key: str = "box_on_goal" if is_on_goal else "box"
+            fallback_col: Tuple[int, int, int] = COLOR_BOX_ON_GOAL_FALLBACK if is_on_goal else COLOR_BOX_FALLBACK
+            self._draw_asset(asset_key, box_rect, fallback_col)
             
         self._draw_player_logic(state.player, is_ai_playing)
 
     def _draw_player_logic(self, target_pos: Tuple[int, int], is_ai_playing: bool) -> None:
-        is_visually_moving = False
-        bob_offset = 0
+        is_visually_moving: bool = False
+        bob_offset: int = 0
         if self.anim_player_pos:
-            dist = abs(self.anim_player_pos[0] - target_pos[0]) + abs(self.anim_player_pos[1] - target_pos[1])
-            is_visually_moving = dist > 0.05
+            dist: float = abs(self.anim_player_pos[0] - target_pos[0]) + abs(self.anim_player_pos[1] - target_pos[1])
+            is_visually_moving = dist > _ANIM_TOLERANCE
 
         if is_ai_playing or is_visually_moving:
-            ticks = pygame.time.get_ticks()
+            ticks: int = pygame.time.get_ticks()
             bob_offset = -4 if (ticks // 150) % 2 == 0 else 0
 
+        vr: float
+        vc: float
         if self.anim_player_pos:
             vr, vc = self.anim_player_pos
         else:
             vr, vc = float(target_pos[0]), float(target_pos[1])
 
-        rect = pygame.Rect(
+        rect: pygame.Rect = pygame.Rect(
             int(self.board_ox + vc * self.tile_size), 
             int(self.board_oy + vr * self.tile_size + bob_offset), 
             self.tile_size, 
             self.tile_size
         )
         
-        sprite = self._get_player_sprite()
-        
+        sprite: Optional[pygame.Surface] = self._get_player_sprite()
         if sprite:
             self.screen.blit(sprite, rect.topleft)
         else:
             pygame.draw.rect(self.screen, COLOR_PLAYER_FALLBACK, rect.inflate(-8, -8))
             pygame.draw.rect(self.screen, COLOR_TEXT, rect.inflate(-16, -16))
 
-    def _draw_dashboard(self, game_session: GameSession, result: Optional[SolveResult], level_index: int, total_levels: int, is_ai_playing: bool, is_solving: bool) -> None:
-        x0 = self.window_width - DASHBOARD_WIDTH
-        rect = pygame.Rect(x0, HEADER_HEIGHT - 3, DASHBOARD_WIDTH, self.window_height - HEADER_HEIGHT + 3)
+    def _draw_dashboard(
+        self, 
+        game_session: GameSession, 
+        result: Optional[SolveResult], 
+        level_index: int, 
+        total_levels: int, 
+        is_ai_playing: bool, 
+        is_solving: bool
+    ) -> None:
+        x0: int = self.window_width - DASHBOARD_WIDTH
+        rect: pygame.Rect = pygame.Rect(x0, HEADER_HEIGHT - 3, DASHBOARD_WIDTH, self.window_height - HEADER_HEIGHT + 3)
         self._draw_panel(rect)
-        x, y = x0 + 20, HEADER_HEIGHT + 20
+        x: int = x0 + 20
+        y: int = HEADER_HEIGHT + 20
         self.screen.blit(self.font_bold.render("METRICS", True, COLOR_PRIMARY), (x, y))
         y += 40
         y = self._draw_metric(x, y, "CURRENT STEPS", str(game_session.steps_count), COLOR_SECONDARY, draw_line=True)
@@ -615,13 +660,13 @@ class GameUI:
         if result is None:
             self.screen.blit(self.font_small.render("AWAITING...", True, COLOR_TEXT_DIM), (x, y))
         else:
-            time_str = f"{result.elapsed_ms:.1f} ms" if result.elapsed_ms < 1000 else f"{result.elapsed_ms/1000:.2f} s"
-            display_algo = result.algorithm.split('(')[0].replace('_', ' ').strip()
+            time_str: str = f"{result.elapsed_ms:.1f} ms" if result.elapsed_ms < 1000 else f"{result.elapsed_ms/1000:.2f} s"
+            display_algo: str = result.algorithm.split('(')[0].replace('_', ' ').strip()
             
-            is_canceled = result.message and "cancel" in result.message.lower()
-            solved_text = "YES" if result.found else ("CANCELED" if is_canceled else "NO")
+            is_canceled: bool = result.message is not None and "cancel" in result.message.lower()
+            solved_text: str = "YES" if result.found else ("CANCELED" if is_canceled else "NO")
             
-            rows = [
+            rows: List[Tuple[str, str]] = [
                 ("ALGO:", display_algo),
                 ("SOLVED:", solved_text),
                 ("PATH:", str(result.steps) if result.found else "-"),
@@ -631,27 +676,27 @@ class GameUI:
             
             for label, val in rows:
                 self.screen.blit(self.font_tiny.render(label, True, COLOR_TEXT_DIM), (x, y + 2))
-                surf = self.font_small.render(val, True, COLOR_SECONDARY if result.found else COLOR_HIGHLIGHT)
+                surf: pygame.Surface = self.font_small.render(val, True, COLOR_SECONDARY if result.found else COLOR_HIGHLIGHT)
                 self.screen.blit(surf, (x0 + DASHBOARD_WIDTH - 20 - surf.get_width(), y))
                 y += 32
 
-        btn_w = DASHBOARD_WIDTH - 40
-        btn_x = x0 + 20
-        half_btn_w = (btn_w - 10) // 2
+        btn_w: int = DASHBOARD_WIDTH - 40
+        btn_x: int = x0 + 20
+        half_btn_w: int = (btn_w - 10) // 2
         
-        quit_y = self.window_height - 70
-        map_y = quit_y - 56
-        undo_btn_y = map_y - 56       
-        pause_y = undo_btn_y - 56      
-        restart_y = pause_y - 56       
-        
-        ctrl_y = restart_y - 40
+        quit_y: int = self.window_height - 70
+        map_y: int = quit_y - 56
+        undo_btn_y: int = map_y - 56       
+        pause_y: int = undo_btn_y - 56      
+        restart_y: int = pause_y - 56       
+        ctrl_y: int = restart_y - 40
+
         self.screen.blit(self.font_bold.render("CONTROLS", True, COLOR_PRIMARY), (btn_x, ctrl_y))
         pygame.draw.line(self.screen, COLOR_BORDER, (btn_x, ctrl_y + 20), (x0 + DASHBOARD_WIDTH - 20, ctrl_y + 20), 2)
         
-        pause_disabled = not is_ai_playing or self.is_paused
-        continue_disabled = not is_ai_playing or not self.is_paused
-        undo_disabled = is_solving or not game_session.history
+        pause_disabled: bool = not is_ai_playing or self.is_paused
+        continue_disabled: bool = not is_ai_playing or not self.is_paused
+        undo_disabled: bool = is_solving or len(game_session.history) == 0
 
         buttons: List[Tuple[str, str, Tuple[int, int, int], int, int, int, bool]] = [
             ("restart", "RESTART", COLOR_BORDER, btn_x, restart_y, btn_w, False),
@@ -663,64 +708,63 @@ class GameUI:
             ("quit_game", "QUIT", COLOR_HIGHLIGHT, btn_x, quit_y, btn_w, False)
         ]
         
-        for key, label, color, bx, by, bw, is_disabled in buttons:
-            btn_rect = pygame.Rect(bx, by, bw, 42)
-            
+        for key, btn_label, color, bx, by, bw, is_disabled in buttons:
+            b_rect: pygame.Rect = pygame.Rect(bx, by, bw, 42)
             if not is_disabled:
-                self.button_rects[key] = btn_rect
-                
-            self._draw_button(btn_rect, label, color, is_disabled=is_disabled, button_key=key)
+                self.button_rects[key] = b_rect
+            self._draw_button(b_rect, btn_label, color, is_disabled=is_disabled, button_key=key)
 
     def _draw_map_popup(self, level_names: List[str], current_index: int) -> None:
-        overlay = pygame.Surface((self.window_width, self.window_height), pygame.SRCALPHA)
+        overlay: pygame.Surface = pygame.Surface((self.window_width, self.window_height), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 180)) 
         self.screen.blit(overlay, (0, 0))
 
-        w, h = 380, 460
+        w: int = 380
+        h: int = 460
+        center_area_w: int = self.window_width - SIDEBAR_WIDTH - DASHBOARD_WIDTH
+        center_area_h: int = self.window_height - HEADER_HEIGHT
         
-        center_area_w = self.window_width - SIDEBAR_WIDTH - DASHBOARD_WIDTH
-        center_area_h = self.window_height - HEADER_HEIGHT
+        popup_x: int = SIDEBAR_WIDTH + (center_area_w - w) // 2
+        popup_y: int = HEADER_HEIGHT + (center_area_h - h) // 2
         
-        popup_x = SIDEBAR_WIDTH + (center_area_w - w) // 2
-        popup_y = HEADER_HEIGHT + (center_area_h - h) // 2
-        
-        rect = pygame.Rect(popup_x, popup_y, w, h)
+        rect: pygame.Rect = pygame.Rect(popup_x, popup_y, w, h)
         self.popup_rect = rect 
         self._draw_panel(rect, COLOR_BG)
         
         self.screen.blit(self.font_large.render("SELECT MAP", True, COLOR_PRIMARY), (rect.x + 20, rect.y + 20))
         
-        list_y = rect.y + 60
-        list_h = h - 130 
-        list_rect = pygame.Rect(rect.x + 20, list_y, rect.width - 40, list_h)
+        list_y: int = rect.y + 60
+        list_h: int = h - 130 
+        list_rect: pygame.Rect = pygame.Rect(rect.x + 20, list_y, rect.width - 40, list_h)
         
-        cols = 4
-        item_size = 70  
-        gap_x = (list_rect.width - 10 - (cols * item_size)) // max(1, cols - 1)
-        gap_y = 20
+        cols: int = 4
+        item_size: int = 70  
+        gap_x: int = (list_rect.width - 10 - (cols * item_size)) // max(1, cols - 1)
+        gap_y: int = 20
         
-        total_rows = math.ceil(len(level_names) / cols)
-        total_content_h = total_rows * (item_size + gap_y)
+        total_rows: int = math.ceil(len(level_names) / cols)
+        total_content_h: int = total_rows * (item_size + gap_y)
         
         self.max_scroll_y = max(0, total_content_h - list_h)
         self.map_scroll_y = max(0, min(self.map_scroll_y, self.max_scroll_y))
         
         self.screen.set_clip(list_rect)
-        
         self.map_rects.clear()
-        for i, name in enumerate(level_names):
-            r = i // cols
-            c = i % cols
+        
+        for i in range(len(level_names)):
+            r: int = i // cols
+            c: int = i % cols
             
-            item_x = list_rect.x + c * (item_size + gap_x)
-            item_y = list_y - self.map_scroll_y + r * (item_size + gap_y)
+            item_x: int = list_rect.x + c * (item_size + gap_x)
+            item_y: int = list_y - self.map_scroll_y + r * (item_size + gap_y)
             
-            row_rect = pygame.Rect(item_x, item_y, item_size, item_size)
+            row_rect: pygame.Rect = pygame.Rect(item_x, item_y, item_size, item_size)
             
             if row_rect.bottom > list_rect.top and row_rect.top < list_rect.bottom:
                 self.map_rects[i] = row_rect
-                is_hovered = row_rect.collidepoint(pygame.mouse.get_pos())
+                is_hovered: bool = row_rect.collidepoint(pygame.mouse.get_pos())
                 
+                text_col: Tuple[int, int, int]
                 if i == self.temp_selected_map_index:
                     pygame.draw.rect(self.screen, COLOR_PRIMARY_DIM, row_rect, border_radius=8)
                     pygame.draw.rect(self.screen, COLOR_PRIMARY, row_rect, 2, border_radius=8)
@@ -734,28 +778,27 @@ class GameUI:
                     pygame.draw.rect(self.screen, COLOR_BORDER, row_rect, 2, border_radius=8)
                     text_col = COLOR_TEXT_DIM
                     
-                text_surf = self.font_large.render(str(i + 1), True, text_col)
+                text_surf: pygame.Surface = self.font_large.render(str(i + 1), True, text_col)
                 self.screen.blit(text_surf, (row_rect.centerx - text_surf.get_width() // 2, row_rect.centery - text_surf.get_height() // 2))
                 
         self.screen.set_clip(None)
         
         if self.max_scroll_y > 0:
-            bar_w = 8
-            bar_x = rect.right - 18
-            
+            bar_w: int = 8
+            bar_x: int = rect.right - 18
             self.scrollbar_track_rect = pygame.Rect(bar_x, list_y, bar_w, list_h)
             pygame.draw.rect(self.screen, (30, 30, 40), self.scrollbar_track_rect, border_radius=4)
             
-            thumb_h = max(30, int((list_h / total_content_h) * list_h))
-            thumb_y = list_y + (self.map_scroll_y / self.max_scroll_y) * (list_h - thumb_h)
+            thumb_h: int = max(30, int((list_h / total_content_h) * list_h))
+            thumb_y: float = list_y + (self.map_scroll_y / self.max_scroll_y) * (list_h - thumb_h)
             pygame.draw.rect(self.screen, COLOR_TEXT_DIM, (bar_x, int(thumb_y), bar_w, thumb_h), border_radius=4)
         else:
             self.scrollbar_track_rect = None
 
-        btn_w = 140
-        btn_y = rect.bottom - 55
-        cancel_rect = pygame.Rect(rect.centerx - btn_w - 10, btn_y, btn_w, 42)
-        confirm_rect = pygame.Rect(rect.centerx + 10, btn_y, btn_w, 42)
+        btn_w: int = 140
+        btn_y: int = rect.bottom - 55
+        cancel_rect: pygame.Rect = pygame.Rect(rect.centerx - btn_w - 10, btn_y, btn_w, 42)
+        confirm_rect: pygame.Rect = pygame.Rect(rect.centerx + 10, btn_y, btn_w, 42)
         
         self.button_rects["cancel_map"] = cancel_rect
         self.button_rects["confirm_map"] = confirm_rect
@@ -765,8 +808,7 @@ class GameUI:
 
     def _draw_metric(self, x: int, y: int, label: str, value: str, color: Tuple[int, int, int], draw_line: bool = True) -> int:
         self.screen.blit(self.font_tiny.render(label, True, COLOR_TEXT_DIM), (x, y))
-        surf = self.font_metric.render(value, True, color)
-        
+        surf: pygame.Surface = self.font_metric.render(value, True, color)
         self.screen.blit(surf, (x + DASHBOARD_WIDTH - 40 - surf.get_width(), y + 22))
         
         if draw_line:
@@ -775,20 +817,26 @@ class GameUI:
         
         return y + 44
 
-    def _draw_button(self, rect: pygame.Rect, label: str, color: Tuple[int, int, int], is_disabled: bool = False, button_key: str = "", is_pulse: bool = False) -> None:
-        current_time = pygame.time.get_ticks()
-        is_clicked = button_key and button_key in self.active_clicks and current_time < self.active_clicks[button_key]
+    def _draw_button(
+        self, 
+        rect: pygame.Rect, 
+        label: str, 
+        color: Tuple[int, int, int], 
+        is_disabled: bool = False, 
+        button_key: str = "", 
+        is_pulse: bool = False
+    ) -> None:
+        current_time: int = pygame.time.get_ticks()
+        is_clicked: bool = bool(button_key) and (button_key in self.active_clicks) and (current_time < self.active_clicks[button_key])
         
-        draw_rect = rect.copy()
-        
-        bg_col = color
+        draw_rect: pygame.Rect = rect.copy()
+        bg_col: Tuple[int, int, int] = color
         
         if is_clicked and not is_disabled:
             draw_rect.y += 3
             bg_col = (min(255, color[0] + 40), min(255, color[1] + 40), min(255, color[2] + 40))
         elif is_pulse and not is_disabled:
-            import math
-            pulse_val = int((math.sin(current_time * 0.005) + 1) * 20) 
+            pulse_val: int = int((math.sin(current_time * 0.005) + 1) * 20) 
             bg_col = (min(255, color[0] + pulse_val), min(255, color[1] + pulse_val), min(255, color[2] + pulse_val))
         elif draw_rect.collidepoint(pygame.mouse.get_pos()) and not is_disabled:
             bg_col = (min(255, color[0] + 20), min(255, color[1] + 20), min(255, color[2] + 20))
@@ -796,30 +844,26 @@ class GameUI:
         if is_disabled:
             bg_col = (50, 50, 60) 
             
-        border_col = (200, 200, 210) if not is_disabled else (80, 80, 90)
-        brightness = bg_col[0] * 0.299 + bg_col[1] * 0.587 + bg_col[2] * 0.114
-        
-        if is_disabled:
-            text_col = (100, 100, 110)
-        else:
-            text_col = (20, 20, 30) if brightness > 130 else (240, 240, 250)
+        border_col: Tuple[int, int, int] = (200, 200, 210) if not is_disabled else (80, 80, 90)
+        brightness: float = bg_col[0] * 0.299 + bg_col[1] * 0.587 + bg_col[2] * 0.114
+        text_col: Tuple[int, int, int] = (100, 100, 110) if is_disabled else ((20, 20, 30) if brightness > 130 else (240, 240, 250))
             
         pygame.draw.rect(self.screen, bg_col, draw_rect, border_radius=6)
         pygame.draw.rect(self.screen, border_col, draw_rect, 2, border_radius=6)
         
-        text_surf = self.font_bold.render(label, True, text_col)
+        text_surf: pygame.Surface = self.font_bold.render(label, True, text_col)
         self.screen.blit(text_surf, text_surf.get_rect(center=draw_rect.center))
 
     def _draw_asset(self, key: str, rect: pygame.Rect, fallback_color: Tuple[int, int, int], is_circle: bool = False, scale_offset: int = 0) -> None:
-        size = max(1, self.tile_size - scale_offset)
-        image = self._get_scaled_asset(key, size)
+        size: int = max(1, self.tile_size - scale_offset)
+        image: Optional[pygame.Surface] = self._get_scaled_asset(key, size)
         
         if image: 
-            img_rect = image.get_rect(center=rect.center)
+            img_rect: pygame.Rect = image.get_rect(center=rect.center)
             self.screen.blit(image, img_rect.topleft)
         elif is_circle: 
             pygame.draw.circle(self.screen, fallback_color, rect.center, max(1, size // 3))
         else: 
-            draw_rect = pygame.Rect(0, 0, size, size)
+            draw_rect: pygame.Rect = pygame.Rect(0, 0, size, size)
             draw_rect.center = rect.center
             pygame.draw.rect(self.screen, fallback_color, draw_rect)

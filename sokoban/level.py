@@ -2,7 +2,7 @@ import random
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, FrozenSet, List, Optional, Tuple
+from typing import Dict, FrozenSet, List, Optional, Tuple, Final, Set, Deque
 
 from .constants import (
     BOX,
@@ -14,31 +14,32 @@ from .constants import (
 )
 from .state import Position, State
 
+_ZOBRIST_SEED: Final[int] = 42
+_PULL_DIRECTIONS: Final[List[Tuple[int, int]]] = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ZobristTable:
     player_keys: Dict[Position, int]
     box_keys: Dict[Position, int]
 
     def compute(self, player: Position, boxes: Tuple[Position, ...]) -> int:
-        h = self.player_keys.get(player, 0)
+        h: int = self.player_keys.get(player, 0)
         for b in boxes:
             h ^= self.box_keys.get(b, 0)
         return h
 
 def generate_zobrist_table(width: int, height: int) -> ZobristTable:
-    rng = random.Random(42) 
-    p_keys = {}
-    b_keys = {}
+    rng: random.Random = random.Random(_ZOBRIST_SEED) 
+    p_keys: Dict[Position, int] = {}
+    b_keys: Dict[Position, int] = {}
     for r in range(height):
         for c in range(width):
-            pos = (r, c)
+            pos: Position = (r, c)
             p_keys[pos] = rng.getrandbits(64)
             b_keys[pos] = rng.getrandbits(64)
     return ZobristTable(p_keys, b_keys)
 
-
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Level:
     name: str
     width: int
@@ -51,22 +52,21 @@ class Level:
     zobrist_table: ZobristTable
 
     def initial_state(self) -> State:
-        h = self.zobrist_table.compute(self.initial_player, self.initial_boxes)
+        h: int = self.zobrist_table.compute(self.initial_player, self.initial_boxes)
         return State(self.initial_player, self.initial_boxes, h)
 
     def is_wall(self, pos: Position) -> bool:
         return pos in self.walls
 
-
 def parse_level(text: str, name: str = "level") -> Level:
-    lines = text.splitlines()
+    lines: List[str] = text.splitlines()
     while lines and not lines[-1].strip():
         lines.pop()
     if not lines:
         raise ValueError("Empty level")
 
-    height = len(lines)
-    width = max(len(line) for line in lines)
+    height: int = len(lines)
+    width: int = max(len(line) for line in lines)
 
     walls_list: List[Position] = []
     goals_list: List[Position] = []
@@ -74,9 +74,9 @@ def parse_level(text: str, name: str = "level") -> Level:
     player: Optional[Position] = None
 
     for r, line in enumerate(lines):
-        padded = line.ljust(width)
+        padded: str = line.ljust(width)
         for c, ch in enumerate(padded):
-            pos = (r, c)
+            pos: Position = (r, c)
             if ch == WALL:
                 walls_list.append(pos)
             elif ch == GOAL:
@@ -102,20 +102,20 @@ def parse_level(text: str, name: str = "level") -> Level:
     if len(boxes_list) == 0 or len(goals_list) == 0:
         raise ValueError(f"Level {name} must have at least one box and one goal.")
 
-    walls_set = frozenset(walls_list)
-    goals_set = frozenset(goals_list)
+    walls_set: FrozenSet[Position] = frozenset(walls_list)
+    goals_set: FrozenSet[Position] = frozenset(goals_list)
     
-    alive_cells = set(goals_list)
-    queue_positions = deque(goals_list)
-
-    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    alive_cells: Set[Position] = set(goals_list)
+    queue_positions: Deque[Position] = deque(goals_list)
 
     while queue_positions:
+        curr_r: int
+        curr_c: int
         curr_r, curr_c = queue_positions.popleft()
 
-        for dr, dc in directions:
-            prev_box = (curr_r - dr, curr_c - dc)
-            prev_player = (curr_r - 2 * dr, curr_c - 2 * dc)
+        for dr, dc in _PULL_DIRECTIONS:
+            prev_box: Position = (curr_r - dr, curr_c - dc)
+            prev_player: Position = (curr_r - 2 * dr, curr_c - 2 * dc)
 
             if (0 <= prev_box[0] < height and 0 <= prev_box[1] < width and
                 0 <= prev_player[0] < height and 0 <= prev_player[1] < width):
@@ -132,7 +132,7 @@ def parse_level(text: str, name: str = "level") -> Level:
             if pos not in walls_set and pos not in alive_cells:
                 deadlocks_list.append(pos)
 
-    zobrist = generate_zobrist_table(width, height)
+    zobrist: ZobristTable = generate_zobrist_table(width, height)
 
     return Level(
         name=name,
@@ -147,9 +147,9 @@ def parse_level(text: str, name: str = "level") -> Level:
     )
 
 def load_level_file(path: Path) -> Level:
-    text = path.read_text(encoding="utf-8")
+    text: str = path.read_text(encoding="utf-8")
     return parse_level(text, name=path.stem)
 
 def load_levels_from_directory(directory: Path) -> List[Level]:
-    files = sorted(p for p in directory.iterdir() if p.suffix == ".txt")
+    files: List[Path] = sorted(p for p in directory.iterdir() if p.suffix == ".txt")
     return [load_level_file(p) for p in files]

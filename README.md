@@ -65,7 +65,7 @@ Danh sách các thuật toán tìm kiếm được cài đặt trong `sokoban/al
 ```text
 
 sokoban-ai-solver/
-├── assets/                 # Các file hình ảnh (box, wall, character, goal)
+├── assets/                 # Các file hình ảnh và âm thanh
 ├── maps/                   # Kho dữ liệu các file .txt chứa ma trận màn chơi
 ├── sokoban/
 │   ├── __init__.py

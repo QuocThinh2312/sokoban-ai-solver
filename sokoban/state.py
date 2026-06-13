@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from typing import FrozenSet, Tuple
+from typing import FrozenSet, Tuple, TypeAlias
 
-Position = Tuple[int, int]
+Position: TypeAlias = Tuple[int, int]
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class State:
     player: Position
     boxes: Tuple[Position, ...]
@@ -18,7 +18,11 @@ class State:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, State):
             return NotImplemented
-        return self.zobrist_hash == other.zobrist_hash and self.get_key() == other.get_key()
+        return (
+            self.zobrist_hash == other.zobrist_hash
+            and self.player == other.player
+            and self.boxes == other.boxes
+        )
 
 def is_goal(state: State, goals: FrozenSet[Position]) -> bool:
     return all(b in goals for b in state.boxes)

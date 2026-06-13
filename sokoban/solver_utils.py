@@ -1,14 +1,21 @@
 import random
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Iterable, List, Tuple, Dict, Optional, Set, Deque
+from typing import Iterable, List, Tuple, Dict, Optional, Set, Deque, Final, TypeAlias, Mapping
 
 from .constants import ACTIONS
 from .level import Level
 from .state import Position, State
 
-_ACTION_TO_INT = {act: i for i, act in enumerate(ACTIONS.keys())}
-_INT_TO_ACTION = {i: act for i, act in enumerate(ACTIONS.keys())}
+_ACTION_TO_INT: Final[Dict[str, int]] = {act: i for i, act in enumerate(ACTIONS.keys())}
+_INT_TO_ACTION: Final[Dict[int, str]] = {i: act for i, act in enumerate(ACTIONS.keys())}
+
+_INFINITY: Final[int] = 999999
+_SUB_INFINITY: Final[int] = 99999
+
+StateKey: TypeAlias = Tuple[Position, Tuple[Position, ...]]
+PathSegment: TypeAlias = Tuple[int, ...]
+ParentMap: TypeAlias = Dict[StateKey, Optional[Tuple[StateKey, PathSegment]]]
 
 @dataclass
 class SolveResult:
@@ -31,12 +38,12 @@ _level_distances: Dict[str, Dict[Position, Dict[Position, int]]] = {}
 _level_sorted_goals: Dict[str, Tuple[Position, ...]] = {}
 
 def precompute_distances(level: Level) -> Dict[Position, Dict[Position, int]]:
-    lvl_id = _get_level_id(level)
+    lvl_id: str = _get_level_id(level)
     if lvl_id in _level_distances:
         return _level_distances[lvl_id]
         
     dist_map: Dict[Position, Dict[Position, int]] = {}
-    action_vectors = list(ACTIONS.values())
+    action_vectors: List[Tuple[int, int]] = list(ACTIONS.values())
     
     for goal in level.goals:
         goal_distances: Dict[Position, int] = {}
@@ -45,42 +52,51 @@ def precompute_distances(level: Level) -> Dict[Position, Dict[Position, int]]:
         state_cost: Dict[Tuple[Position, Position], int] = {}
         queue: Deque[Tuple[Position, Position]] = deque()
         
+        gr: int
+        gc: int
         gr, gc = goal
         for dr, dc in action_vectors:
-            p_pos = (gr + dr, gc + dc)
+            p_pos: Position = (gr + dr, gc + dc)
             if not level.is_wall(p_pos):
-                state = (goal, p_pos)
-                state_cost[state] = 0
-                queue.append(state)
+                state_tup: Tuple[Position, Position] = (goal, p_pos)
+                state_cost[state_tup] = 0
+                queue.append(state_tup)
         
         while queue:
+            b_pos: Position
+            p_pos: Position
             b_pos, p_pos = queue.popleft()
-            cost = state_cost[(b_pos, p_pos)]
+            cost: int = state_cost[(b_pos, p_pos)]
             
             if b_pos not in goal_distances or cost < goal_distances[b_pos]:
                 goal_distances[b_pos] = cost
             
+            pr: int
+            pc: int
             pr, pc = p_pos
             for dr, dc in action_vectors:
-                new_p = (pr + dr, pc + dc)
+                new_p: Position = (pr + dr, pc + dc)
                 if new_p != b_pos and not level.is_wall(new_p):
-                    new_state = (b_pos, new_p)
-                    new_cost = cost + 1
+                    new_state: Tuple[Position, Position] = (b_pos, new_p)
+                    new_cost: int = cost + 1
                     if new_state not in state_cost or new_cost < state_cost[new_state]:
                         state_cost[new_state] = new_cost
                         queue.append(new_state) 
                         
+            br: int
+            bc: int
             br, bc = b_pos
-            dr, dc = br - pr, bc - pc
-            if abs(dr) + abs(dc) == 1:
-                new_b = p_pos
-                new_p = (pr - dr, pc - dc)
-                if not level.is_wall(new_p):
-                    new_state = (new_b, new_p)
-                    new_cost = cost + 1
-                    if new_state not in state_cost or new_cost < state_cost[new_state]:
-                        state_cost[new_state] = new_cost
-                        queue.append(new_state) 
+            db_r: int = br - pr
+            db_c: int = bc - pc
+            if abs(db_r) + abs(db_c) == 1:
+                new_b: Position = p_pos
+                new_p_push: Position = (pr - db_r, pc - db_c)
+                if not level.is_wall(new_p_push):
+                    new_state_push: Tuple[Position, Position] = (new_b, new_p_push)
+                    new_cost_push: int = cost + 1
+                    if new_state_push not in state_cost or new_cost_push < state_cost[new_state_push]:
+                        state_cost[new_state_push] = new_cost_push
+                        queue.append(new_state_push) 
                         
     _level_distances[lvl_id] = dist_map
     return dist_map
@@ -91,37 +107,39 @@ _deadlock_cache: Dict[Tuple[str, Tuple[Position, ...]], bool] = {}
 def _compute_heuristic_value(boxes: Tuple[Position, ...], goals: Tuple[Position, ...], lvl_id: str) -> int:
     if not boxes:
         return 0
-    dist_map = _level_distances[lvl_id]
-    n = len(boxes)
+    dist_map: Mapping[Position, Mapping[Position, int]] = _level_distances[lvl_id]
+    n: int = len(boxes)
     memo: Dict[Tuple[int, int], int] = {}
 
     def dfs(b_idx: int, g_mask: int) -> int:
         if b_idx == n:
             return 0
-        state_key = (b_idx, g_mask)
+        state_key: Tuple[int, int] = (b_idx, g_mask)
         if state_key in memo:
             return memo[state_key]
-        res = 999999
-        b = boxes[b_idx]
+            
+        res: int = _INFINITY
+        b: Position = boxes[b_idx]
         for g_idx in range(n):
             if not (g_mask & (1 << g_idx)):
-                d = dist_map[goals[g_idx]].get(b, 99999)
-                if d < 99999:
-                    cost = d + dfs(b_idx + 1, g_mask | (1 << g_idx))
+                d: int = dist_map[goals[g_idx]].get(b, _SUB_INFINITY)
+                if d < _SUB_INFINITY:
+                    cost: int = d + dfs(b_idx + 1, g_mask | (1 << g_idx))
                     if cost < res:
                         res = cost
         memo[state_key] = res
         return res
 
-    val = dfs(0, 0)
-    return val if val < 999999 else 999999
+    val: int = dfs(0, 0)
+    return val if val < _INFINITY else _INFINITY
 
 def heuristic(state: State, level: Level) -> int:
     precompute_distances(level)
-    lvl_id = _get_level_id(level)
-    sorted_boxes = tuple(sorted(state.boxes))
-    cache_key = (lvl_id, sorted_boxes)
+    lvl_id: str = _get_level_id(level)
+    sorted_boxes: Tuple[Position, ...] = tuple(sorted(state.boxes))
+    cache_key: Tuple[str, Tuple[Position, ...]] = (lvl_id, sorted_boxes)
     
+    base_h: int
     if cache_key in _heuristic_cache:
         base_h = _heuristic_cache[cache_key]
     else:
@@ -130,42 +148,46 @@ def heuristic(state: State, level: Level) -> int:
         base_h = _compute_heuristic_value(sorted_boxes, _level_sorted_goals[lvl_id], lvl_id)
         _heuristic_cache[cache_key] = base_h
         
-    if base_h >= 999999:
-        return 999999
+    if base_h >= _INFINITY:
+        return _INFINITY
         
-    unsolved = [b for b in state.boxes if b not in level.goals]
+    unsolved: List[Position] = [b for b in state.boxes if b not in level.goals]
     if unsolved:
+        pr: int
+        pc: int
         pr, pc = state.player
-        return base_h + min(abs(pr - br) + abs(pc - bc) for br, bc in unsolved)
+        return base_h + min(abs(pr - b[0]) + abs(pc - b[1]) for b in unsolved)
         
     return base_h
 
 def greedy_heuristic(state: State, level: Level) -> float:
-    base_h = heuristic(state, level)
+    base_h: int = heuristic(state, level)
     
-    if base_h >= 99999:
-        return 999999.0
+    if base_h >= _SUB_INFINITY:
+        return float(_INFINITY)
 
-    boxes_set = set(state.boxes)
-    unsolved_boxes = boxes_set - level.goals
-    unsolved_count = len(unsolved_boxes)
+    boxes_set: Set[Position] = set(state.boxes)
+    unsolved_boxes: Set[Position] = boxes_set - level.goals
+    unsolved_count: int = len(unsolved_boxes)
 
-    player_dist = 0
+    player_dist: int = 0
     if unsolved_boxes:
+        pr: int
+        pc: int
         pr, pc = state.player
-        player_dist = min(abs(pr - br) + abs(pc - bc) for br, bc in unsolved_boxes)
+        player_dist = min(abs(pr - b[0]) + abs(pc - b[1]) for b in unsolved_boxes)
 
-    penalty = 0
+    penalty: int = 0
     for br, bc in unsolved_boxes:
-        v_wall = level.is_wall((br - 1, bc)) or level.is_wall((br + 1, bc))
-        h_wall = level.is_wall((br, bc - 1)) or level.is_wall((br, bc + 1))
+        v_wall: bool = level.is_wall((br - 1, bc)) or level.is_wall((br + 1, bc))
+        h_wall: bool = level.is_wall((br, bc - 1)) or level.is_wall((br, bc + 1))
         
         if v_wall and h_wall:
             penalty += 6
         elif v_wall or h_wall:
             penalty += 2
 
-    jitter = random.uniform(0.0, 0.5)
+    jitter: float = random.uniform(0.0, 0.5)
     
     return float(base_h + (unsolved_count * 10) + player_dist + penalty + jitter)
 
@@ -179,6 +201,8 @@ def is_freeze_deadlock(boxes_set: Set[Position], level: Level) -> bool:
             if box in frozen_boxes:
                 continue
             
+            r: int
+            c: int
             r, c = box
             
             v_blocked: bool = (level.is_wall((r-1, c)) or (r-1, c) in frozen_boxes) or \
@@ -197,8 +221,8 @@ def is_freeze_deadlock(boxes_set: Set[Position], level: Level) -> bool:
     return False
 
 def has_deadlock(state: State, level: Level) -> bool:
-    lvl_id = _get_level_id(level)
-    cache_key = (lvl_id, state.boxes)
+    lvl_id: str = _get_level_id(level)
+    cache_key: Tuple[str, Tuple[Position, ...]] = (lvl_id, state.boxes)
     if cache_key in _deadlock_cache:
         return _deadlock_cache[cache_key]
 
@@ -206,17 +230,20 @@ def has_deadlock(state: State, level: Level) -> bool:
         _deadlock_cache[cache_key] = True
         return True
         
-    boxes_set = set(state.boxes)
+    boxes_set: Set[Position] = set(state.boxes)
+    _DEADLOCK_OFFSETS: Final[List[Tuple[int, int]]] = [(-1, -1), (-1, 0), (0, -1), (0, 0)]
     
     for r, c in state.boxes:
-        for dr, dc in [(-1, -1), (-1, 0), (0, -1), (0, 0)]:
-            tl_r, tl_c = r + dr, c + dc
-            is_solid = True
-            boxes_in_2x2 = []
+        for dr, dc in _DEADLOCK_OFFSETS:
+            tl_r: int = r + dr
+            tl_c: int = c + dc
+            is_solid: bool = True
+            boxes_in_2x2: List[Position] = []
             
             for i in range(2):
                 for j in range(2):
-                    curr_r, curr_c = tl_r + i, tl_c + j
+                    curr_r: int = tl_r + i
+                    curr_c: int = tl_c + j
                     if (curr_r, curr_c) in boxes_set:
                         boxes_in_2x2.append((curr_r, curr_c))
                     elif not level.is_wall((curr_r, curr_c)):
@@ -237,26 +264,28 @@ def has_deadlock(state: State, level: Level) -> bool:
     _deadlock_cache[cache_key] = False
     return False
 
-def get_macro_neighbors(state: State, level: Level) -> Iterable[Tuple[Tuple[int, ...], State]]:
-    queue: Deque[Tuple[Position, Tuple[int, ...]]] = deque([(state.player, ())])
+def get_macro_neighbors(state: State, level: Level) -> Iterable[Tuple[PathSegment, State]]:
+    queue: Deque[Tuple[Position, PathSegment]] = deque([(state.player, ())])
     visited_player: Set[Position] = {state.player}
-    boxes_set = set(state.boxes)
+    boxes_set: Set[Position] = set(state.boxes)
     zt = level.zobrist_table
     
     while queue:
+        curr_p: Position
+        path: PathSegment
         curr_p, path = queue.popleft()
         
         for action, (dr, dc) in ACTIONS.items():
-            target = (curr_p[0] + dr, curr_p[1] + dc)
+            target: Position = (curr_p[0] + dr, curr_p[1] + dc)
             
             if target in boxes_set:
-                beyond = (target[0] + dr, target[1] + dc)
+                beyond: Position = (target[0] + dr, target[1] + dc)
                 
                 if not level.is_wall(beyond) and beyond not in boxes_set:
-                    act_int = _ACTION_TO_INT[action]
-                    new_boxes = tuple(sorted(b if b != target else beyond for b in state.boxes))
+                    act_int: int = _ACTION_TO_INT[action]
+                    new_boxes: Tuple[Position, ...] = tuple(sorted(b if b != target else beyond for b in state.boxes))
                     
-                    h_val = zt.player_keys[target]
+                    h_val: int = zt.player_keys[target]
                     for b in new_boxes:
                         h_val ^= zt.box_keys[b]
                         
@@ -268,15 +297,20 @@ def get_macro_neighbors(state: State, level: Level) -> Iterable[Tuple[Tuple[int,
                     act_int = _ACTION_TO_INT[action]
                     queue.append((target, path + (act_int,)))
 
-def reconstruct_path(parent: Dict[Tuple[Position, Tuple[Position, ...]], Optional[Tuple[Tuple[Position, Tuple[Position, ...]], Tuple[int, ...]]]], curr_key: Tuple[Position, Tuple[Position, ...]]) -> List[str]:
+def reconstruct_path(parent: ParentMap, curr_key: StateKey) -> List[str]:
     final_path: List[str] = []
     
     while curr_key in parent:
-        parent_info = parent[curr_key]
+        parent_info: Optional[Tuple[StateKey, PathSegment]] = parent[curr_key]
         if parent_info is None:
             break
-        curr_key, action_segment = parent_info
+            
+        next_key: StateKey
+        action_segment: PathSegment
+        next_key, action_segment = parent_info
+        
         final_path.extend(reversed([_INT_TO_ACTION[act_int] for act_int in action_segment]))
+        curr_key = next_key
         
     final_path.reverse()
     return final_path

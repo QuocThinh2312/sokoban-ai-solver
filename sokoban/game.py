@@ -1,58 +1,62 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from .constants import ACTIONS
 from .level import Level
-from .state import State, is_goal
+from .state import Position, State, is_goal
 
 def apply_action(state: State, action: str, level: Level) -> Optional[State]:
+    dr: int
+    dc: int
     dr, dc = ACTIONS[action]
+    
+    pr: int
+    pc: int
     pr, pc = state.player
-    target = (pr + dr, pc + dc)
+    
+    target: Position = (pr + dr, pc + dc)
 
     if level.is_wall(target):
         return None
 
     if target in state.boxes:
-        beyond = (target[0] + dr, target[1] + dc)
+        beyond: Position = (target[0] + dr, target[1] + dc)
         if level.is_wall(beyond) or beyond in state.boxes:
             return None
         
-        new_boxes = list(state.boxes)
-        new_boxes.remove(target)
-        new_boxes.append(beyond)
-        new_boxes.sort() 
+        new_boxes: Tuple[Position, ...] = tuple(sorted(b if b != target else beyond for b in state.boxes))
         
-        h = state.zobrist_hash
+        h: int = state.zobrist_hash
         h ^= level.zobrist_table.player_keys[state.player]
         h ^= level.zobrist_table.player_keys[target]
         h ^= level.zobrist_table.box_keys[target]
         h ^= level.zobrist_table.box_keys[beyond]
         
-        return State(target, tuple(new_boxes), h)
+        return State(target, new_boxes, h)
 
-    h = state.zobrist_hash
-    h ^= level.zobrist_table.player_keys[state.player]
-    h ^= level.zobrist_table.player_keys[target]
+    h_move: int = state.zobrist_hash
+    h_move ^= level.zobrist_table.player_keys[state.player]
+    h_move ^= level.zobrist_table.player_keys[target]
     
-    return State(target, state.boxes, h)
+    return State(target, state.boxes, h_move)
 
 
 class GameSession:
-    def __init__(self, level: Level):
-        self.level = level
+    def __init__(self, level: Level) -> None:
+        self.level: Level = level
         self.state: State = level.initial_state()
         self.history: List[State] = []
         self.steps_count: int = 0
 
     def restart(self) -> None:
         self.state = self.level.initial_state()
-        self.history = []
+        self.history.clear()
         self.steps_count = 0
 
     def move(self, action: str) -> bool:
-        new_state = apply_action(self.state, action, self.level)
+        new_state: Optional[State] = apply_action(self.state, action, self.level)
         if new_state is None:
             return False
+            
         self.history.append(self.state)
         self.state = new_state
         self.steps_count += 1
@@ -61,6 +65,7 @@ class GameSession:
     def undo(self) -> bool:
         if not self.history:
             return False
+            
         self.state = self.history.pop()
         self.steps_count = max(0, self.steps_count - 1)
         return True
