@@ -8,13 +8,13 @@ Một hệ thống tự động giải game Sokoban được viết bằng Pytho
 
 Hệ thống hỗ trợ 7 thuật toán tìm kiếm đa dạng, cho phép theo dõi và so sánh hiệu suất theo thời gian thực:
 
-1. **BFS**: Đảm bảo tìm được đường đi ngắn nhất.
+1. **BFS**: Duyệt trạng thái theo chiều rộng, luôn tìm được lời giải nếu tồn tại.
 2. **DFS**: Tìm kiếm theo chiều sâu, tiết kiệm bộ nhớ.
-3. **UCS**: Tối ưu theo chi phí di chuyển.
-4. **Greedy Search**: Tốc độ cực nhanh, kết hợp đa tầng Tie-breaking và Jitter để tránh Local Optimum.
-5. **A\***: Thuật toán tối ưu cân bằng giữa Heuristic `h(n)` và chi phí `g(n)`.
-6. **Weighted A\***: Nhân trọng số cho Heuristic để tăng tốc độ tìm kiếm tại các map lớn.
-7. **Beam Search**: Mở rộng linh hoạt với giới hạn bộ nhớ, tự động nhận diện bế tắc.
+3. **UCS**: Tìm lời giải tối ưu theo chi phí di chuyển.
+4. **Greedy Search**: Ưu tiên các trạng thái có vẻ gần đích nhất theo heuristic.
+5. **A\***: Thuật toán tối ưu cân bằng giữa heuristic `h(n)` và chi phí `g(n)`.
+6. **Weighted A\***: Nhân trọng số cho heuristic để tăng tốc độ tìm kiếm.
+7. **Beam Search**: Giới hạn số trạng thái mở rộng, không đảm bảo tối ưu.
 
 ## 🚀 Kỹ thuật tối ưu & cải tiến
 
