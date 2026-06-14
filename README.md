@@ -1,65 +1,76 @@
-# Sokoban AI Solver
+# 🤖 Sokoban AI Solver
 
-Một hệ thống tự động giải game Sokoban được viết bằng Python và Pygame. Dự án áp dụng các kỹ thuật tìm kiếm không gian trạng thái từ cơ bản đến nâng cao để tự động tìm ra chuỗi hành động tối ưu đẩy toàn bộ hộp vào đích.
+Một hệ thống tự động giải game Sokoban được viết bằng Python. Dự án áp dụng các kỹ thuật tìm kiếm không gian trạng thái từ cơ bản đến nâng cao để tự động tìm ra chuỗi hành động tối ưu đẩy toàn bộ hộp vào đích.
 
-## Cài đặt
+![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)
 
-Cài đặt các thư viện phụ thuộc (Pygame, Numpy, Scipy,...)
+## ✨ Các thuật toán AI được tích hợp
 
-## Chạy chương trình
+Hệ thống hỗ trợ 7 thuật toán tìm kiếm đa dạng, cho phép theo dõi và so sánh hiệu suất theo thời gian thực:
 
-Mở terminal tại thư mục gốc của dự án và gõ lệnh:
+1. **BFS**: Đảm bảo tìm được đường đi ngắn nhất.
+2. **DFS**: Tìm kiếm theo chiều sâu, tiết kiệm bộ nhớ.
+3. **UCS**: Tối ưu theo chi phí di chuyển.
+4. **Greedy Search**: Tốc độ cực nhanh, kết hợp đa tầng Tie-breaking và Jitter để tránh Local Optimum.
+5. **A\***: Thuật toán tối ưu cân bằng giữa Heuristic `h(n)` và chi phí `g(n)`.
+6. **Weighted A\***: Nhân trọng số cho Heuristic để tăng tốc độ tìm kiếm tại các map lớn.
+7. **Beam Search**: Mở rộng linh hoạt với giới hạn bộ nhớ, tự động nhận diện bế tắc.
+
+## 🚀 Kỹ thuật tối ưu & cải tiến
+
+- **State-aware Heuristic (Bitmask DP)**: Đánh giá khoảng cách chính xác bằng quy hoạch động với bitmask.
+- **Geometric Deadlock Detection & Caching**: Nhận diện bế tắc hình học và lưu vết để cắt sớm các nhánh vô vọng.
+- **Precomputed Distances** Chạy BFS ngược từ đích để tính sẵn chi phí đường đi với thời gian tra cứu O(1).
+- **Zobrist Hashing & Macro-moves:** Mã hóa trạng thái bằng Zobrist Hash 64-bit và gom nhóm di chuyển tự do thành thao tác đẩy để giảm hệ số phân nhánh.
+- **Map Hash Caching**: Cơ chế cache tiền xử lý map dựa trên kiến trúc địa hình để tránh Cache Collision.
+- **Hungarian Algorithm:** Tính toán ánh xạ UI giúp hoạt ảnh mượt mà.
+
+## 🛠 Cài đặt & khởi chạy
+
+### 1. Yêu cầu hệ thống
+
+- **Python 3.10** trở lên.
+
+### 2. Cài đặt thư viện
+
+Mở terminal tại thư mục gốc và chạy:
+
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Khởi chạy
 
 ```bash
 python run.py
 ```
 
-## Điều khiển & tương tác UI
+## 🎮 Điều khiển & tương tác UI
 
-- **Nút RUN AI (Backspace)**: Khởi chạy thuật toán AI để giải màn chơi hiện tại.
+- **Nút RUN AI (Space)**: Khởi chạy thuật toán AI để giải màn chơi hiện tại.
 - **Nút RESTART (R)**: Chơi lại từ đầu màn hiện tại.
 - **Nút MAPS (M)**: Mở cửa sổ popup chọn level với thanh cuộn tương tác.
 - **Nút PAUSE/CONTINUE (P/C)**: Tạm dừng hoặc tiếp tục quá trình di chuyển của bot AI.
 - **Nút UNDO (U)**: Quay lại bước di chuyển trước đó của bot AI.
 - **Nút RANDOM**: Chọn ngẫu nhiên một màn chơi trong hệ thống.
 - **Nút QUIT (Esc/Q)**: Thoát game.
+- **Phím W/A/S/D hoặc các phím mũi tên**: Người chơi tự di chuyển nhân vật theo các hướng.
 
-## Ký hiệu trong tệp màn chơi
+## 🗺️ Tự tạo màn chơi
 
-| Ký hiệu      | Ý nghĩa                   |
-| ------------ | ------------------------- |
-| `#`          | Tường                     |
-| `@`          | Người chơi                |
-| `+`          | Người chơi đứng trên đích |
-| `$`          | Thùng                     |
-| `*`          | Thùng đặt trên đích       |
-| `.`          | Vị trí đích               |
-| khoảng trắng | Ô trống                   |
+Hệ thống cung cấp sẵn hàng trăm map trong folder `maps/`. Bạn hoàn toàn có thể tự tạo màn chơi riêng bằng cách tạo file .txt mới trong folder này với các ký hiệu sau:
 
-## Kho dữ liệu màn chơi
+| Ký hiệu | Ý nghĩa                   |
+| ------- | ------------------------- |
+| `#`     | Tường                     |
+| `@`     | Người chơi                |
+| `+`     | Người chơi đứng trên đích |
+| `$`     | Thùng                     |
+| `*`     | Thùng đặt trên đích       |
+| `.`     | Vị trí đích               |
+| (Space) | Ô trống                   |
 
-Hệ thống hiện tại tích hợp một kho dữ liệu khổng lồ với hàng trăm màn chơi nằm trong thư mục maps/. Các map đa dạng độ khó từ cơ bản đến cực khó (đòi hỏi xử lý deadlock hình học phức tạp).
-
-## Các thuật toán AI được tích hợp
-
-Danh sách các thuật toán tìm kiếm được cài đặt trong `sokoban/algorithms.py`:
-
-1. **BFS**: Đảm bảo đường đi ngắn nhất nhưng tốn nhiều RAM.
-2. **DFS**: Tiết kiệm bộ nhớ nhưng không tối ưu số bước.
-3. **UCS**: Tối ưu theo chi phí.
-4. **Greedy Search**: Tốc độ cực nhanh, kết hợp đa tầng Tie-breaking và Jitter để tránh Local Optimum.
-5. **A\***: Kết hợp g(n) + h(n), cân bằng giữa tối ưu và hiệu suất.
-6. **Weighted A\***: Nhân trọng số cho Heuristic để tăng tốc độ tìm kiếm tại các map cực lớn.
-7. **Adaptive Beam Search**: Beam Search mở rộng linh hoạt, tự động nhận diện bế tắc để điều hướng không gian tìm kiếm.
-
-## Kỹ thuật tối ưu & cải tiến
-
-- **State-aware Heuristic (Bitmask DP)**: Tối ưu hóa việc gán Hộp -> Đích bằng Bitmask DP. Heuristic không chỉ đo khoảng cách Manhattan mà còn cộng điểm phạt khi hộp nằm ở góc/tường hẹp và thưởng khi người chơi đứng gần hộp.
-- **Geometric Deadlock Detection**: Hệ thống nhận diện bế tắc hình học chính xác (Static deadlock, Freeze deadlock, Tunnel deadlock, bẫy 2x2 tường/hộp) để cắt tỉa các nhánh vô vọng từ sớm mà không làm mất lời giải tối ưu.
-- **Zobrist Hashing & State Representation**: Mô hình hóa trạng thái siêu nhẹ, lưu trữ dạng tuple kết hợp Zobrist Hash để tra cứu và caching trạng thái cực nhanh.
-- **Macro-moves**: Gom nhóm các di chuyển tự do của người chơi thành một lệnh đẩy hộp, thu hẹp đáng kể không gian tìm kiếm.
-- **Tracking `best_g_cost`**: Thay thế cơ chế Visited Sets cứng nhắc bằng `best_g_cost` để không bỏ sót các đường đi ngắn hơn dẫn đến cùng một trạng thái.
-- **Map Hash Caching**: Cơ chế cache tiền xử lý dựa trên kiến trúc map thay vì tên file, loại bỏ rủi ro Cache Collision.
+_Lưu ý: Map hợp lệ phải có tường bao quanh và số lượng thùng phải bằng số lượng đích._
 
 ## Cấu trúc thư mục
 
@@ -67,21 +78,22 @@ Danh sách các thuật toán tìm kiếm được cài đặt trong `sokoban/al
 
 sokoban-ai-solver/
 ├── assets/                 # Các file hình ảnh và âm thanh
-├── maps/                   # Kho dữ liệu các file .txt chứa ma trận màn chơi
+├── docs/                   # Tài liệu báo cáo
+├── maps/                   # Kho dữ liệu các file .txt chứa màn chơi
 ├── sokoban/
 │   ├── __init__.py
-│   ├── algorithms.py       # Cài đặt logic cốt lõi của 7 thuật toán tìm kiếm AI .
-│   ├── constants.py        # Định nghĩa các hằng số toàn cục: ký hiệu màu sắc, kích thước UI,...
-│   ├── game.py             # Xử lý logic game và quản lý phiên chơi.
+│   ├── algorithms.py       # Cài đặt logic 7 thuật toán tìm kiếm AI
+│   ├── constants.py        # Định nghĩa các hằng số toàn cục (FPS, màu sắc, phím)
+│   ├── game.py             # Xử lý logic game và quản lý phiên chơi
 │   ├── level.py            # Đọc, phân tích và mã hóa map từ file .txt
-│   ├── main.py             # Quản lý game loop, bắt sự kiện chuột/phím và điều phối đa luồng cho AI.
-│   ├── solver_utils.py     # Các kỹ thuật tối ưu: tính heuristic, deadlock detection, sinh macro-moves,...
-│   ├── state.py            # Định nghĩa cấu trúc bất biến của state, bao gồm vị trí player, boxes và zobrist.
-│   └── ui.py               # Render giao diện, bảng điều khiển, popup, scrollbar
+│   ├── main.py             # Quản lý game loop, xử lý sự kiện và điều phối đa luồng cho AI
+│   ├── solver_utils.py     # Các kỹ thuật tối ưu (Heuristic, Deadlock Detection, Macro-moves)
+│   ├── state.py            # Định nghĩa Data Class cho State
+│   └── ui.py               # Render giao diện, animation, layout
 ├── .gitignore
-├── project_report.docx
 ├── README.md               # Tài liệu dự án
-└── run.py                  # Script khởi chạy phụ
+├── requirements.txt        # Danh sách thư viện phụ thuộc
+└── run.py                  # Entry point khởi chạy
 
 ```
 
