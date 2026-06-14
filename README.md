@@ -3,6 +3,9 @@
 Một hệ thống tự động giải game Sokoban được viết bằng Python. Dự án áp dụng các kỹ thuật tìm kiếm không gian trạng thái từ cơ bản đến nâng cao để tự động tìm ra chuỗi hành động tối ưu đẩy toàn bộ hộp vào đích.
 
 ![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)
+![Pygame Version](https://img.shields.io/badge/pygame-2.5%2B-green)
+![NumPy Version](https://img.shields.io/badge/numpy-1.24%2B-red)
+![SciPy Version](https://img.shields.io/badge/scipy-1.1%2B-orange)
 
 https://github.com/user-attachments/assets/5d397fd7-ba87-4a3f-b371-8956a4e94b0f
 
@@ -79,7 +82,7 @@ _Lưu ý: Map hợp lệ phải có tường bao quanh và số lượng thùng 
 ```text
 
 sokoban-ai-solver/
-├── assets/                # Các file hình ảnh và âm thanh
+├── assets/                # Các file hình ảnh, âm thanh, font và video demo
 ├── docs/                  # Tài liệu báo cáo
 ├── maps/                  # Kho dữ liệu các file .txt chứa màn chơi
 ├── sokoban/
