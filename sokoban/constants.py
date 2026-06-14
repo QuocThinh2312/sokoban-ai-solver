@@ -15,7 +15,7 @@ ACTIONS: Final[Dict[str, Tuple[int, int]]] = {
     "R": (0, 1),
 }
 
-SIDEBAR_WIDTH: Final[int] = 260
+SIDEBAR_WIDTH: Final[int] = 270
 DASHBOARD_WIDTH: Final[int] = 270
 HEADER_HEIGHT: Final[int] = 60
 FPS: Final[int] = 60

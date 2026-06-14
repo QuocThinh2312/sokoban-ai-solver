@@ -21,7 +21,8 @@ from .game import GameSession
 _ASSETS_DIR: Final[Path] = Path(__file__).resolve().parent.parent / "assets"
 _IMG_DIR: Final[Path] = _ASSETS_DIR / "img"
 _AUDIO_DIR: Final[Path] = _ASSETS_DIR / "audio"
-_FONT_PATH: Final[Path] = _ASSETS_DIR / "PressStart2P.ttf"
+_FONT_DIR: Final[Path] = _ASSETS_DIR / "font"
+_FONT_PATH: Final[Path] = _FONT_DIR / "PressStart2P-Regular.ttf"
 
 _RETRO_FLOOR: Final[Tuple[int, int, int]] = (218, 212, 186)
 _AUDIO_FREQ: Final[int] = 44100
@@ -109,13 +110,13 @@ class GameUI:
                 try:
                     snd: pygame.mixer.Sound = pygame.mixer.Sound(str(path))
                     if key == "move":
-                        snd.set_volume(0.2)
+                        snd.set_volume(1.1)
                     elif key == "click":
-                        snd.set_volume(0.2)
+                        snd.set_volume(0.5)
                     elif key == "select":
-                        snd.set_volume(0.1)
+                        snd.set_volume(0.3)
                     elif key == "win":
-                        snd.set_volume(0.1)
+                        snd.set_volume(0.5)
                     self.sounds[key] = snd
                 except (pygame.error, FileNotFoundError):
                     self.sounds[key] = None
@@ -126,7 +127,7 @@ class GameUI:
         if bgm_path.exists():
             try:
                 pygame.mixer.music.load(str(bgm_path))
-                pygame.mixer.music.set_volume(0.3) 
+                pygame.mixer.music.set_volume(0.1) 
                 pygame.mixer.music.play(-1)
             except (pygame.error, FileNotFoundError):
                 pass
@@ -147,12 +148,12 @@ class GameUI:
         try:
             if _FONT_PATH.exists():
                 font_path_str: str = str(_FONT_PATH)
-                self.font = pygame.font.Font(font_path_str, 14)
-                self.font_small = pygame.font.Font(font_path_str, 12)
-                self.font_tiny = pygame.font.Font(font_path_str, 10)
-                self.font_bold = pygame.font.Font(font_path_str, 14)
-                self.font_large = pygame.font.Font(font_path_str, 20)
-                self.font_metric = pygame.font.Font(font_path_str, 16)
+                self.font = pygame.font.Font(font_path_str, 10)
+                self.font_small = pygame.font.Font(font_path_str, 9)
+                self.font_tiny = pygame.font.Font(font_path_str, 8)
+                self.font_bold = pygame.font.Font(font_path_str, 11)
+                self.font_large = pygame.font.Font(font_path_str, 18)
+                self.font_metric = pygame.font.Font(font_path_str, 12)
             else:
                 raise FileNotFoundError
         except (pygame.error, FileNotFoundError, RuntimeError):
@@ -459,8 +460,11 @@ class GameUI:
         pygame.draw.rect(self.screen, COLOR_PANEL, rect)
         pygame.draw.rect(self.screen, COLOR_BORDER, rect, 3)
         
-        self.screen.blit(self.font_large.render("SOKOBAN", True, COLOR_PRIMARY), (20, 18))
-        self.screen.blit(self.font_bold.render("AI SOLVER", True, COLOR_TEXT), (160, 22))
+        sokoban_surf: pygame.Surface = self.font_large.render("SOKOBAN", True, COLOR_PRIMARY)
+        ai_solver_surf: pygame.Surface = self.font_bold.render("AI SOLVER", True, COLOR_TEXT)
+        
+        self.screen.blit(sokoban_surf, (20, (HEADER_HEIGHT - sokoban_surf.get_height()) // 2 - 2))
+        self.screen.blit(ai_solver_surf, (20 + sokoban_surf.get_width() + 10, (HEADER_HEIGHT - ai_solver_surf.get_height()) // 2 - 1))
 
     def _draw_sidebar(
         self, 
@@ -500,9 +504,9 @@ class GameUI:
             pygame.draw.rect(self.screen, bg_col, row_rect)
             pygame.draw.rect(self.screen, border_col, row_rect, 2)
             
-            display_font: pygame.font.Font = self.font_small if len(algo_name) >= 9 else self.font_bold
-            offset_y: int = 15 if len(algo_name) >= 9 else 13
-            self.screen.blit(display_font.render(algo_name, True, text_col), (x + 12, y + offset_y))
+            display_font: pygame.font.Font = self.font_small if len(algo_name) >= 12 else self.font_bold
+            algo_surf: pygame.Surface = display_font.render(algo_name, True, text_col)
+            self.screen.blit(algo_surf, (x + 12, row_rect.centery - algo_surf.get_height() // 2 + 1))
             
             result: Optional[SolveResult] = results_by_algo.get(algo_name)
             if result is not None:
@@ -515,12 +519,12 @@ class GameUI:
                 status_str = ""
                 
             surf: pygame.Surface = self.font_tiny.render(status_str, True, step_col)
-            self.screen.blit(surf, (x + row_rect.width - surf.get_width() - 8, y + 17))
+            self.screen.blit(surf, (x + row_rect.width - surf.get_width() - 8, row_rect.centery - surf.get_height() // 2 + 1))
             y += 52
             
         y += 15 
         self.screen.blit(self.font_small.render("AI SPEED:", True, COLOR_PRIMARY), (x, y))
-        y += 35
+        y += 20
         self.slider_rect = pygame.Rect(20, y, SIDEBAR_WIDTH - 40, 14)
         
         pygame.draw.rect(self.screen, (10, 10, 10), self.slider_rect.move(2, 2))
@@ -539,7 +543,7 @@ class GameUI:
             info_y: int = btn_y - 45
             self.screen.blit(self.font_small.render("COMPUTING...", True, COLOR_SECONDARY), (x, info_y))
             time_str: str = f"{min(60.0, compute_time):.1f}s"
-            self.screen.blit(self.font_small.render(time_str, True, COLOR_HIGHLIGHT), (x + 150, info_y))
+            self.screen.blit(self.font_small.render(time_str, True, COLOR_HIGHLIGHT), (x + 120, info_y))
             node_str: str = f"Nodes: {compute_nodes:,}"
             self.screen.blit(self.font_tiny.render(node_str, True, COLOR_TEXT_DIM), (x, info_y + 20))
             
@@ -649,7 +653,7 @@ class GameUI:
         x: int = x0 + 20
         y: int = HEADER_HEIGHT + 20
         self.screen.blit(self.font_bold.render("METRICS", True, COLOR_PRIMARY), (x, y))
-        y += 40
+        y += 35
         y = self._draw_metric(x, y, "CURRENT STEPS", str(game_session.steps_count), COLOR_SECONDARY, draw_line=True)
         y = self._draw_metric(x, y, "LEVEL SEED", f"{level_index + 1:02d}/{total_levels:02d}", COLOR_TEXT, draw_line=True)
         
@@ -675,8 +679,11 @@ class GameUI:
             ]
             
             for label, val in rows:
-                self.screen.blit(self.font_tiny.render(label, True, COLOR_TEXT_DIM), (x, y + 2))
-                surf: pygame.Surface = self.font_small.render(val, True, COLOR_SECONDARY if result.found else COLOR_HIGHLIGHT)
+                self.screen.blit(self.font_small.render(label, True, COLOR_TEXT_DIM), (x, y + 2))
+                surf: pygame.Surface = self.font_bold.render(val, True, COLOR_SECONDARY if result.found else COLOR_HIGHLIGHT)
+                max_val_w: int = DASHBOARD_WIDTH - 40 - self.font_small.size(label)[0] - 10
+                if surf.get_width() > max_val_w:
+                    surf = self.font_small.render(val, True, COLOR_SECONDARY if result.found else COLOR_HIGHLIGHT)
                 self.screen.blit(surf, (x0 + DASHBOARD_WIDTH - 20 - surf.get_width(), y))
                 y += 32
 
@@ -719,8 +726,8 @@ class GameUI:
         overlay.fill((0, 0, 0, 180)) 
         self.screen.blit(overlay, (0, 0))
 
-        w: int = 380
-        h: int = 460
+        w: int = 410
+        h: int = 490
         center_area_w: int = self.window_width - SIDEBAR_WIDTH - DASHBOARD_WIDTH
         center_area_h: int = self.window_height - HEADER_HEIGHT
         
@@ -738,7 +745,7 @@ class GameUI:
         list_rect: pygame.Rect = pygame.Rect(rect.x + 20, list_y, rect.width - 40, list_h)
         
         cols: int = 4
-        item_size: int = 70  
+        item_size: int = 80  
         gap_x: int = (list_rect.width - 10 - (cols * item_size)) // max(1, cols - 1)
         gap_y: int = 20
         
@@ -779,7 +786,9 @@ class GameUI:
                     text_col = COLOR_TEXT_DIM
                     
                 text_surf: pygame.Surface = self.font_large.render(str(i + 1), True, text_col)
-                self.screen.blit(text_surf, (row_rect.centerx - text_surf.get_width() // 2, row_rect.centery - text_surf.get_height() // 2))
+                text_rect: pygame.Rect = text_surf.get_rect(center=row_rect.center)
+                text_rect.y += 2
+                self.screen.blit(text_surf, text_rect)
                 
         self.screen.set_clip(None)
         
@@ -807,15 +816,14 @@ class GameUI:
         self._draw_button(confirm_rect, "CONFIRM", COLOR_SECONDARY, button_key="confirm_map")
 
     def _draw_metric(self, x: int, y: int, label: str, value: str, color: Tuple[int, int, int], draw_line: bool = True) -> int:
-        self.screen.blit(self.font_tiny.render(label, True, COLOR_TEXT_DIM), (x, y))
+        self.screen.blit(self.font_small.render(label, True, COLOR_TEXT_DIM), (x, y))
         surf: pygame.Surface = self.font_metric.render(value, True, color)
-        self.screen.blit(surf, (x + DASHBOARD_WIDTH - 40 - surf.get_width(), y + 22))
-        
+        self.screen.blit(surf, (x + DASHBOARD_WIDTH - 40 - surf.get_width(), y + 14))
         if draw_line:
-            pygame.draw.line(self.screen, COLOR_BORDER, (x, y + 44), (x + DASHBOARD_WIDTH - 40, y + 44), 2)
-            return y + 54
+            pygame.draw.line(self.screen, COLOR_BORDER, (x, y + 36), (x + DASHBOARD_WIDTH - 40, y + 36), 2)
+            return y + 48
         
-        return y + 44
+        return y + 36
 
     def _draw_button(
         self, 
@@ -852,7 +860,9 @@ class GameUI:
         pygame.draw.rect(self.screen, border_col, draw_rect, 2, border_radius=6)
         
         text_surf: pygame.Surface = self.font_bold.render(label, True, text_col)
-        self.screen.blit(text_surf, text_surf.get_rect(center=draw_rect.center))
+        text_rect: pygame.Rect = text_surf.get_rect(center=draw_rect.center)
+        text_rect.y += 2
+        self.screen.blit(text_surf, text_rect)
 
     def _draw_asset(self, key: str, rect: pygame.Rect, fallback_color: Tuple[int, int, int], is_circle: bool = False, scale_offset: int = 0) -> None:
         size: int = max(1, self.tile_size - scale_offset)

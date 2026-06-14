@@ -20,7 +20,7 @@ Hệ thống hỗ trợ 7 thuật toán tìm kiếm đa dạng, cho phép theo d
 
 - **State-aware Heuristic (Bitmask DP)**: Đánh giá khoảng cách chính xác bằng quy hoạch động với bitmask.
 - **Geometric Deadlock Detection & Caching**: Nhận diện bế tắc hình học và lưu vết để cắt sớm các nhánh vô vọng.
-- **Precomputed Distances** Chạy BFS ngược từ đích để tính sẵn chi phí đường đi với thời gian tra cứu O(1).
+- **Precomputed Distances**: Chạy BFS ngược từ đích để tính sẵn chi phí đường đi với thời gian tra cứu O(1).
 - **Zobrist Hashing & Macro-moves:** Mã hóa trạng thái bằng Zobrist Hash 64-bit và gom nhóm di chuyển tự do thành thao tác đẩy để giảm hệ số phân nhánh.
 - **Map Hash Caching**: Cơ chế cache tiền xử lý map dựa trên kiến trúc địa hình để tránh Cache Collision.
 - **Hungarian Algorithm:** Tính toán ánh xạ UI giúp hoạt ảnh mượt mà.
@@ -72,32 +72,32 @@ Hệ thống cung cấp sẵn hàng trăm map trong folder `maps/`. Bạn hoàn 
 
 _Lưu ý: Map hợp lệ phải có tường bao quanh và số lượng thùng phải bằng số lượng đích._
 
-## Cấu trúc thư mục
+## 📁 Cấu trúc thư mục
 
 ```text
 
 sokoban-ai-solver/
-├── assets/                 # Các file hình ảnh và âm thanh
-├── docs/                   # Tài liệu báo cáo
-├── maps/                   # Kho dữ liệu các file .txt chứa màn chơi
+├── assets/                # Các file hình ảnh và âm thanh
+├── docs/                  # Tài liệu báo cáo
+├── maps/                  # Kho dữ liệu các file .txt chứa màn chơi
 ├── sokoban/
 │   ├── __init__.py
-│   ├── algorithms.py       # Cài đặt logic 7 thuật toán tìm kiếm AI
-│   ├── constants.py        # Định nghĩa các hằng số toàn cục (FPS, màu sắc, phím)
-│   ├── game.py             # Xử lý logic game và quản lý phiên chơi
-│   ├── level.py            # Đọc, phân tích và mã hóa map từ file .txt
-│   ├── main.py             # Quản lý game loop, xử lý sự kiện và điều phối đa luồng cho AI
-│   ├── solver_utils.py     # Các kỹ thuật tối ưu (Heuristic, Deadlock Detection, Macro-moves)
-│   ├── state.py            # Định nghĩa Data Class cho State
-│   └── ui.py               # Render giao diện, animation, layout
+│   ├── algorithms.py      # Cài đặt logic 7 thuật toán tìm kiếm AI
+│   ├── constants.py       # Định nghĩa các hằng số toàn cục (FPS, màu sắc, phím)
+│   ├── game.py            # Xử lý logic game và quản lý phiên chơi
+│   ├── level.py           # Đọc, phân tích và mã hóa map từ file .txt
+│   ├── main.py            # Quản lý game loop, xử lý sự kiện và điều phối đa luồng cho AI
+│   ├── solver_utils.py    # Các kỹ thuật tối ưu (Heuristic, Deadlock Detection, Macro-moves)
+│   ├── state.py           # Định nghĩa Data Class cho State
+│   └── ui.py              # Render giao diện, animation, layout
 ├── .gitignore
-├── README.md               # Tài liệu dự án
-├── requirements.txt        # Danh sách thư viện phụ thuộc
-└── run.py                  # Entry point khởi chạy
+├── README.md              # Tài liệu dự án
+├── requirements.txt       # Danh sách thư viện phụ thuộc
+└── run.py                 # Entry point khởi chạy
 
 ```
 
-## Chỉ số Telemetry
+## 🧭 Chỉ số Telemetry
 
 Sau khi AI giải quyết một màn chơi, bảng dashboard sẽ hiển thị chi tiết các thông số đo lường hiệu năng:
 

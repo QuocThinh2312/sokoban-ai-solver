@@ -124,6 +124,9 @@ class SokobanApp:
             
         self.ui.play_sound("click")
         self.game_session.restart()
+        self.ai_steps.clear()
+        self.history_ai_steps.clear()
+        self.manual_move_queue.clear()
         self.undo_queue = 0
         self.ui.is_paused = False
         self.is_solving = True
@@ -185,6 +188,7 @@ class SokobanApp:
         elif action_type == "restart":
             self.game_session.restart()
             self.ai_steps.clear()
+            self.history_ai_steps.clear()
             self.ui.is_paused = False
             self.manual_move_queue.clear()
             self.undo_queue = 0
@@ -234,6 +238,7 @@ class SokobanApp:
             self.ui.play_sound("click")
             self.game_session.restart()
             self.ai_steps.clear()
+            self.history_ai_steps.clear()
             self.ui.is_paused = False
             self.manual_move_queue.clear()
             self.undo_queue = 0
