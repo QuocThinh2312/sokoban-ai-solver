@@ -4,7 +4,7 @@ Một hệ thống tự động giải game Sokoban được viết bằng Pytho
 
 ![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)
 
-<video controls src="assets/media/demo.mp4" title="Demo Sokoban AI Solver"></video>
+https://github.com/user-attachments/assets/f57b6721-26dd-4c9d-9bf4-245ec27f3624
 
 ## ✨ Các thuật toán AI được tích hợp
 
