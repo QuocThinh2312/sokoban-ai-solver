@@ -19,7 +19,7 @@ from .constants import (
 from .game import GameSession
 
 _ASSETS_DIR: Final[Path] = Path(__file__).resolve().parent.parent / "assets"
-_IMG_DIR: Final[Path] = _ASSETS_DIR / "img"
+_IMG_DIR: Final[Path] = _ASSETS_DIR / "images"
 _AUDIO_DIR: Final[Path] = _ASSETS_DIR / "audio"
 _FONT_DIR: Final[Path] = _ASSETS_DIR / "font"
 _FONT_PATH: Final[Path] = _FONT_DIR / "PressStart2P-Regular.ttf"

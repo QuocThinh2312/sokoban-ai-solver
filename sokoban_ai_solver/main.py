@@ -22,18 +22,10 @@ KEY_TO_ACTION: Final[Dict[int, str]] = {
     pygame.K_RIGHT: "R", pygame.K_d: "R",
 }
 
-KEY_TO_ALGO: Final[Dict[int, str]] = {
-    pygame.K_1: "BFS",
-    pygame.K_2: "DFS",
-    pygame.K_3: "UCS",
-    pygame.K_4: "Greedy",
-    pygame.K_5: "A*",
-}
-
 _POPUP_DELAY_MS: Final[int] = 150
 
 def load_all_levels() -> List[Level]:
-    maps_dir: Path = Path(__file__).resolve().parent.parent / "maps"
+    maps_dir: Path = Path(__file__).resolve().parent.parent / "assets" / "maps"
     if not maps_dir.is_dir():
         raise SystemExit(f"Levels directory not found: {maps_dir}")
     all_levels: List[Level] = load_levels_from_directory(maps_dir)
@@ -226,12 +218,6 @@ class SokobanApp:
             self.ui.register_click("quit_game")
             self.ui.play_sound("click")
             self.is_running = False
-        
-        elif key in KEY_TO_ALGO:
-            self.ui.play_sound("select")
-            self.current_algo = KEY_TO_ALGO[key]
-            self.current_result = self.results_by_algo.get(self.current_algo)
-            self.status_text = f"Selected {self.current_algo}."
         
         elif key == pygame.K_r:
             self.ui.register_click("restart")
