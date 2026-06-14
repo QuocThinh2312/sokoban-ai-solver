@@ -655,7 +655,7 @@ class GameUI:
         self.screen.blit(self.font_bold.render("METRICS", True, COLOR_PRIMARY), (x, y))
         y += 35
         y = self._draw_metric(x, y, "CURRENT STEPS", str(game_session.steps_count), COLOR_SECONDARY, draw_line=True)
-        y = self._draw_metric(x, y, "LEVEL SEED", f"{level_index + 1:02d}/{total_levels:02d}", COLOR_TEXT, draw_line=True)
+        y = self._draw_metric(x, y, "MAP SEED", f"{level_index + 1:02d}/{total_levels:02d}", COLOR_TEXT, draw_line=True)
         
         y += 10
         self.screen.blit(self.font_bold.render("TELEMETRY", True, COLOR_PRIMARY), (x, y))
