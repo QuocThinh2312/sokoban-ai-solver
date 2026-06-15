@@ -82,13 +82,17 @@ _Lưu ý: Map hợp lệ phải có tường bao quanh và số lượng thùng 
 ```text
 
 sokoban-ai-solver/
-├── assets/                # Các file hình ảnh, âm thanh, font và video demo
+├── assets/                # Tài nguyên của hệ thống
+│   ├── audio/             # Chứa các file âm thanh hiệu ứng (move, click,...)
+│   ├── font/              # Chứa retro pixel font
+│   ├── images/            # Chứa các file hình ảnh (box, wall, character,...)
+│   ├── maps/              # Kho dữ liệu các file .txt chứa màn chơi
+│   ├── media/             # Chứa file video demo
 ├── docs/                  # Tài liệu báo cáo
-├── maps/                  # Kho dữ liệu các file .txt chứa màn chơi
-├── sokoban/
+├── sokoban_ai_solver/     # Package chứa logic cốt lõi của game và AI
 │   ├── __init__.py
 │   ├── algorithms.py      # Cài đặt logic 7 thuật toán tìm kiếm AI
-│   ├── constants.py       # Định nghĩa các hằng số toàn cục (FPS, màu sắc, phím)
+│   ├── constants.py       # Định nghĩa các hằng số toàn cục
 │   ├── game.py            # Xử lý logic game và quản lý phiên chơi
 │   ├── level.py           # Đọc, phân tích và mã hóa map từ file .txt
 │   ├── main.py            # Quản lý game loop, xử lý sự kiện và điều phối đa luồng cho AI
